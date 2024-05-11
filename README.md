@@ -1,15 +1,11 @@
 # Marker API
 
-<!-- markdown-link-check-enable -->
-
-> [!INTRO_MARKER]
 > Marker API provides a simple endpoint for converting PDF documents to Markdown quickly and accurately. With just one click, you can deploy the Marker API endpoint and start converting PDFs seamlessly.
-
 
 ## Features
 
-- Can convert multiple PDFs at the same time.
 - Converts PDF to Markdown.
+- Can convert Multiple PDFs at the same time.
 - Supports a wide range of documents, including books and scientific papers.
 - Supports all languages.
 - Removes headers, footers, and other artifacts.
@@ -18,40 +14,78 @@
 - Converts most equations to LaTeX.
 - Works on GPU, CPU, or MPS.
 
-## Installation and Set up
+## Installation and Setup
 
 ### Python
 
+To install Marker API in a Python environment, follow these steps:
+
+1. Clone the Marker API repository from GitHub:
+
 ```bash
 git clone https://github.com/adithya-s-k/marker-api
-poetry install
-
-# or
-
-pip install marker
 ```
 
+2. Navigate to the cloned repository directory:
+
+```bash
+cd marker-api
+```
+
+3. Install the dependencies using Poetry:
+
+```bash
+poetry install
+```
+
+After installation, you can import the `marker_api` module in your Python code.
+
 ```python
-import marker_api
+marker_api
+```
+
+or 
+```
+python server.py
 ```
 
 ### Docker
 
+To use Marker API with Docker, execute the following commands:
+
+1. Pull the Marker API Docker image from Docker Hub:
+
 ```bash
 docker pull savatar/marker-api
+```
+
+2. Run the Docker container, exposing port 8000:
+
+```bash
 docker run -p 8000:8000 marker-api
+```
 
-# or
+Alternatively, if you prefer to build the Docker image locally:
 
+```bash
 docker build -t marker-api .
+```
+
+Then, run the Docker container as follows:
+
+```bash
 docker run -p 8000:8000 marker-api
 ```
 
 ### Skypilot
 
+To deploy Marker API using Skypilot, execute the following command:
+
 ```bash
 sky launch marker-api.yaml
 ```
+
+These steps provide detailed instructions for installing and setting up Marker API in Python, Docker, and Skypilot environments.
 
 ## Usage
 
