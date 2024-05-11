@@ -16,7 +16,7 @@
 
 ## Installation and Setup
 
-### Python
+### 🐍 Python
 
 To install Marker API in a Python environment, follow these steps:
 
@@ -40,52 +40,49 @@ poetry install
 
 After installation, you can import the `marker_api` module in your Python code.
 
-```python
+```bash
 marker_api
 ```
 
 or 
-```
+```bash
 python server.py
 ```
 
-### Docker
+### 🛳️ Docker
 
 To use Marker API with Docker, execute the following commands:
 
 1. Pull the Marker API Docker image from Docker Hub:
-
-```bash
-docker pull savatar/marker-api
-```
-
 2. Run the Docker container, exposing port 8000:
 
 ```bash
+docker pull savatar/marker-api
+
 docker run -p 8000:8000 marker-api
 ```
 
 Alternatively, if you prefer to build the Docker image locally:
-
-```bash
-docker build -t marker-api .
-```
-
 Then, run the Docker container as follows:
 
 ```bash
+docker build -t marker-api .
+
 docker run -p 8000:8000 marker-api
 ```
 
-### Skypilot
-
-To deploy Marker API using Skypilot, execute the following command:
+### ✈️ Skypilot
+SkyPilot is a framework for running LLMs, AI, and batch jobs on any cloud, offering maximum cost savings, highest GPU availability, and managed execution.
+To deploy Marker API using Skypilot on any cloud provider, execute the following command:
 
 ```bash
+pip install skypilot-nightly[all]
+
+# setup skypilot with the cloud provider our your
+
 sky launch marker-api.yaml
 ```
-
-These steps provide detailed instructions for installing and setting up Marker API in Python, Docker, and Skypilot environments.
+please refer to skypilot [documentation](https://skypilot.readthedocs.io/en/latest/docs/index.html) for more information.
 
 ## Usage
 
