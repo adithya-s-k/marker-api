@@ -27,7 +27,6 @@ transformers = "^4.36.2" # 4.36.2 needed because issues with donut models and la
 numpy = "^1.26.1"
 python-dotenv = "^1.0.0"
 torch = "^2.2.2" # Issue with torch 2.3.0 and vision models - https://github.com/pytorch/pytorch/issues/121834
-ray = "^2.20.0"
 tqdm = "^4.66.1"
 tabulate = "^0.9.0"
 ftfy = "^6.1.1"
@@ -38,6 +37,9 @@ filetype = "^1.2.0"
 regex = "^2024.4.28"
 pdftext = "^0.3.7"
 grpcio = "^1.63.0"
+fastapi = "^0.111.0"
+uvicorn = "^0.29.0"
+pypdfium2 = "^4.30.0"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
@@ -46,6 +48,7 @@ jupyter = "^1.0.0"
 marker = "convert:main"
 marker_single = "convert_single:main"
 marker_chunk_convert = "chunk_convert:main"
+marker_api = "server:main"
 
 [build-system]
 requires = ["poetry-core"]
