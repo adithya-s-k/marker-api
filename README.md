@@ -86,65 +86,103 @@ please refer to skypilot [documentation](https://skypilot.readthedocs.io/en/late
 
 ## Usage
 
+To document the API endpoint `/convert` in your README.md file, you can use Markdown syntax to provide clear and concise information about how to use it. Here's how you could structure it:
+
+---
+
+## Convert PDF to Markdown API Endpoint
+
+### Description
+This API endpoint allows you to convert a PDF file to Markdown format. Optionally, it can also extract images from the PDF.
+
 ### Endpoint
+- **URL:** `/convert`
+- **Method:** `POST`
 
-The Marker API can be accessed via a simple HTTP POST request to the designated endpoint.
+### Request
+- **Body Parameters:**
+  - `pdf_file`: The PDF file to be converted. (Type: File)
+  - `extract_images` (Optional): Specify whether to extract images from the PDF. Default is `true`. (Type: Boolean)
 
-```http
-POST /convert
-```
+### Response
+- **Success Response:**
+  - **Code:** 200 OK
+  - **Content:** JSON containing the converted Markdown text, metadata, and optionally extracted image data.
+    ```json
+    {
+        "markdown": "Converted Markdown text...",
+        "metadata": {...},
+        "images": {
+            "image_1": "data:image/png;base64,<base64_encoded_image_data>",
+            "image_2": "data:image/png;base64,<base64_encoded_image_data>",
+            ...
+        }
+    }
+    ```
+  If images are included in the response, they are provided in base64-encoded format. You can use this data to display the images in your application. Additionally, you can use the following Python script [invoke.py](/examples/invoke.py) to invoke the endpoint with a local PDF file and save the images locally
+
+- **Error Response:**
+  - **Code:** 415 Unsupported Media Type
+  - **Content:** JSON containing error details.
 
 ### Invoke Endpoint
+
+#### CURL
+
+```bash
+curl -X POST \
+  -F "pdf_file=@example.pdf;type=application/pdf" \
+  -F "extract_images=true" \
+  http://localhost:8000/convert
+```
 
 #### Python
 
 ```python
 import requests
+import os
 
-# PDF file to be converted
-pdf_file = open('example.pdf', 'rb')
+url = "http://localhost:8000/convert"
+pdf_file_path = "example.pdf"
+with open(pdf_file_path, 'rb') as pdf_file:
+    pdf_content = pdf_file.read()
+files = {'pdf_file': (os.path.basename(pdf_file_path), pdf_content, 'application/pdf')}
+params = {'extract_images': True}  # Optional parameter
+response = requests.post(url, files=files, params=params)
 
-# Send POST request to Marker API endpoint
-response = requests.post('https://marker-api.com/convert', files={'file': pdf_file})
-
-# Print converted Markdown content
-print(response.text)
+print(response.json())
 ```
 
 #### JavaScript
 
 ```javascript
+const fetch = require('node-fetch');
 const fs = require('fs');
-const axios = require('axios');
 
-// Read the PDF file as binary data
-const pdfFile = fs.readFileSync('example.pdf');
+const url = "http://localhost:8000/convert";
+const pdfFilePath = "example.pdf";
 
-// Set up the request data
-const requestData = new FormData();
-requestData.append('file', pdfFile);
+fs.readFile(pdfFilePath, (err, pdfContent) => {
+    if (err) {
+        console.error(err);
+        return;
+    }
 
-// Make a POST request to the Marker API endpoint
-axios.post('https://marker-api.com/convert', requestData, {
-  headers: {
-    'Content-Type': 'multipart/form-data',
-  },
-})
-.then(response => {
-  // Handle the response, e.g., display the converted Markdown content
-  console.log(response.data);
-})
-.catch(error => {
-  // Handle errors
-  console.error('Error:', error);
+    const formData = new FormData();
+    formData.append('pdf_file', new Blob([pdfContent], { type: 'application/pdf' }), pdfFilePath);
+    formData.append('extract_images', true); // Optional parameter
+
+    fetch(url, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => console.log(data))
+    .catch(error => console.error('Error:', error));
 });
 ```
 
-#### CURL
 
-```bash
-curl -X POST -F "file=@example.pdf" https://marker-api.com/convert
-```
 
 <details>
 <summary><h3>Marker Readme</h3></summary>
