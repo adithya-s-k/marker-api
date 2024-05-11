@@ -84,28 +84,23 @@ please refer to skypilot [documentation](https://skypilot.readthedocs.io/en/late
 
 ## Usage
 
-To document the API endpoint `/convert` in your README.md file, you can use Markdown syntax to provide clear and concise information about how to use it. Here's how you could structure it:
-
----
-
-## Convert PDF to Markdown API Endpoint
-
-### Description
-This API endpoint allows you to convert a PDF file to Markdown format. Optionally, it can also extract images from the PDF.
-
 ### Endpoint
+
 - **URL:** `/convert`
 - **Method:** `POST`
 
 ### Request
+
 - **Body Parameters:**
   - `pdf_file`: The PDF file to be converted. (Type: File)
   - `extract_images` (Optional): Specify whether to extract images from the PDF. Default is `true`. (Type: Boolean)
 
 ### Response
+
 - **Success Response:**
   - **Code:** 200 OK
   - **Content:** JSON containing the converted Markdown text, metadata, and optionally extracted image data.
+
     ```json
     {
         "markdown": "Converted Markdown text...",
@@ -117,6 +112,7 @@ This API endpoint allows you to convert a PDF file to Markdown format. Optionall
         }
     }
     ```
+
   If images are included in the response, they are provided in base64-encoded format. You can use this data to display the images in your application. Additionally, you can use the following Python script [invoke.py](/examples/invoke.py) to invoke the endpoint with a local PDF file and save the images locally
 
 - **Error Response:**
@@ -393,9 +389,11 @@ Thank you to the authors of these models and datasets for making them available 
 
 ## To Do
 
-- [ ] Create server
+- [x] Create server
+- [x] Add support for single PDF upload
 - [ ] Add support for multi PDF upload
 - [ ] Implement handling for multiple PDF uploads simultaneously.
+- [ ] Live update API on progress of conversion
 - [ ] Docker support and Skypilot support
 - [ ] Enhance GPU utilization and optimize performance for efficient processing.
 - [ ] Introduce a toggle mode to generate Markdown without including images in the output.
