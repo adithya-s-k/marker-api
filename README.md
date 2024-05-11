@@ -32,11 +32,9 @@ git clone https://github.com/adithya-s-k/marker-api
 cd marker-api
 ```
 
-3. Install the dependencies using Poetry:
+3. Install the dependencies using the following commands:
 
-```bash
-poetry install
-```
+`poetry install` or `pip install -e .`
 
 After installation, you can run the server through `marker_api` command 
 
@@ -49,7 +47,7 @@ or
 python server.py
 ```
 
-### 🛳️ Docker
+<!-- ### 🛳️ Docker
 
 To use Marker API with Docker, execute the following commands:
 
@@ -82,7 +80,7 @@ pip install skypilot-nightly[all]
 
 sky launch marker-api.yaml
 ```
-please refer to skypilot [documentation](https://skypilot.readthedocs.io/en/latest/docs/index.html) for more information.
+please refer to skypilot [documentation](https://skypilot.readthedocs.io/en/latest/docs/index.html) for more information. -->
 
 ## Usage
 
@@ -395,13 +393,18 @@ Thank you to the authors of these models and datasets for making them available 
 
 ## To Do
 
+- [ ] Create server
+- [ ] Add support for multi PDF upload
 - [ ] Implement handling for multiple PDF uploads simultaneously.
+- [ ] Docker support and Skypilot support
 - [ ] Enhance GPU utilization and optimize performance for efficient processing.
 - [ ] Introduce a toggle mode to generate Markdown without including images in the output.
 - [ ] Implement dynamic adjustment of batch size based on available VRAM.
 
 ## Throughput Benchmarks
+
 Updates on throughput benchmarks will be available soon.
 
 ## Acknowledgements
+
 This project is built on top of the remarkable [marker](https://github.com/VikParuchuri/marker) project created by [VikParuchuri](https://twitter.com/VikParuchuri). We express our gratitude for the inspiration and foundation provided by this project.
