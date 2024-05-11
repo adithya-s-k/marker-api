@@ -38,7 +38,7 @@ cd marker-api
 poetry install
 ```
 
-After installation, you can import the `marker_api` module in your Python code.
+After installation, you can run the server through `marker_api` command 
 
 ```bash
 marker_api
