@@ -354,3 +354,16 @@ This work would not have been possible without amazing open source models and da
 Thank you to the authors of these models and datasets for making them available to the community!
 
 </details>
+
+## To Do
+
+- [ ] Implement handling for multiple PDF uploads simultaneously.
+- [ ] Enhance GPU utilization and optimize performance for efficient processing.
+- [ ] Introduce a toggle mode to generate Markdown without including images in the output.
+- [ ] Implement dynamic adjustment of batch size based on available VRAM.
+
+## Throughput Benchmarks
+Updates on throughput benchmarks will be available soon.
+
+## Acknowledgements
+This project is built on top of the remarkable [marker](https://github.com/VikParuchuri/marker) project created by [VikParuchuri](https://twitter.com/VikParuchuri). We express our gratitude for the inspiration and foundation provided by this project.
