@@ -1,4 +1,122 @@
-# Marker
+# Marker API
+
+<!-- markdown-link-check-enable -->
+
+> [!INTRO_MARKER]
+> Marker API provides a simple endpoint for converting PDF documents to Markdown quickly and accurately. With just one click, you can deploy the Marker API endpoint and start converting PDFs seamlessly.
+
+
+## Features
+
+- Can convert multiple PDFs at the same time.
+- Converts PDF to Markdown.
+- Supports a wide range of documents, including books and scientific papers.
+- Supports all languages.
+- Removes headers, footers, and other artifacts.
+- Formats tables and code blocks.
+- Extracts and saves images along with the Markdown.
+- Converts most equations to LaTeX.
+- Works on GPU, CPU, or MPS.
+
+## Installation and Set up
+
+### Python
+
+```bash
+git clone https://github.com/adithya-s-k/marker-api
+poetry install
+
+# or
+
+pip install marker
+```
+
+```python
+import marker_api
+```
+
+### Docker
+
+```bash
+docker pull savatar/marker-api
+docker run -p 8000:8000 marker-api
+
+# or
+
+docker build -t marker-api .
+docker run -p 8000:8000 marker-api
+```
+
+### Skypilot
+
+```bash
+sky launch marker-api.yaml
+```
+
+## Usage
+
+### Endpoint
+
+The Marker API can be accessed via a simple HTTP POST request to the designated endpoint.
+
+```http
+POST /convert
+```
+
+### Invoke Endpoint
+
+#### Python
+
+```python
+import requests
+
+# PDF file to be converted
+pdf_file = open('example.pdf', 'rb')
+
+# Send POST request to Marker API endpoint
+response = requests.post('https://marker-api.com/convert', files={'file': pdf_file})
+
+# Print converted Markdown content
+print(response.text)
+```
+
+#### JavaScript
+
+```javascript
+const fs = require('fs');
+const axios = require('axios');
+
+// Read the PDF file as binary data
+const pdfFile = fs.readFileSync('example.pdf');
+
+// Set up the request data
+const requestData = new FormData();
+requestData.append('file', pdfFile);
+
+// Make a POST request to the Marker API endpoint
+axios.post('https://marker-api.com/convert', requestData, {
+  headers: {
+    'Content-Type': 'multipart/form-data',
+  },
+})
+.then(response => {
+  // Handle the response, e.g., display the converted Markdown content
+  console.log(response.data);
+})
+.catch(error => {
+  // Handle errors
+  console.error('Error:', error);
+});
+```
+
+#### CURL
+
+```bash
+curl -X POST -F "file=@example.pdf" https://marker-api.com/convert
+```
+
+<details>
+<summary><h3>Marker Readme</h3></summary>
 
 Marker converts PDF to markdown quickly and accurately.
 
@@ -203,3 +321,5 @@ This work would not have been possible without amazing open source models and da
 - ByT5 from Google
 
 Thank you to the authors of these models and datasets for making them available to the community!
+
+</details>
