@@ -412,3 +412,9 @@ Updates on throughput benchmarks will be available soon.
 ## Acknowledgements
 
 This project is built on top of the remarkable [marker](https://github.com/VikParuchuri/marker) project created by [VikParuchuri](https://twitter.com/VikParuchuri). We express our gratitude for the inspiration and foundation provided by this project.
+
+<p align="center">
+  <a href="https://adithyask.com">
+    <img src="https://api.star-history.com/svg?repos=adithya-s-k/marker-api&type=Date" alt="Star History Chart">
+  </a>
+</p>
