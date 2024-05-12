@@ -14,6 +14,12 @@
 - Converts most equations to LaTeX.
 - Works on GPU, CPU, or MPS.
 
+## Comparison
+
+| Original PDF | Marker-API | PyPDF |
+|--------------|------------|-------|
+| ![Original PDF](./data/images/original_pdf.png) | ![Marker-API](./data/images/marker_api.png) | ![PyPDF](./data/images/pypdf.png) |
+
 ## Installation and Setup
 
 ### 🐍 Python
