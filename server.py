@@ -36,20 +36,50 @@ def parse_pdf_and_return_markdown(pdf_file: bytes , extract_images: bool):
     return full_text, out_meta, image_data
     
 
+# @app.post("/convert")
+# async def convert_pdf_to_markdown(pdf_file: UploadFile = File(...), extract_images: bool = True):
+#     if extract_images == False:
+#         Settings.EXTRACT_IMAGES = False
+#         print("Print EXTRACT_IMAGES set to False")
+#     else:
+#         Settings.EXTRACT_IMAGES = True
+#     if pdf_file.content_type != "application/pdf":
+#         raise HTTPException(
+#             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+#             detail=f'File {pdf_file.filename} has unsupported extension type',
+#         )
+#     markdown_text, metadata, image_data = parse_pdf_and_return_markdown(await pdf_file.read(), extract_images=extract_images)
+#     return {"markdown": markdown_text, "metadata": metadata, "images": image_data }
+
+@app.get("/")
+async def server():
+    return {"Welcome to marker api server"}
+
 @app.post("/convert")
-async def convert_pdf_to_markdown(pdf_file: UploadFile = File(...), extract_images: bool = True):
+async def convert_pdf_to_markdown(pdf_files: List[UploadFile] = File(...), extract_images: bool = True):
     if extract_images == False:
         Settings.EXTRACT_IMAGES = False
-        print("Print EXTRACT_IMAGES set to False")
+        print("EXTRACT_IMAGES set to False")
     else:
         Settings.EXTRACT_IMAGES = True
-    if pdf_file.content_type != "application/pdf":
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f'File {pdf_file.filename} has unsupported extension type',
-        )
-    markdown_text, metadata, image_data = parse_pdf_and_return_markdown(await pdf_file.read(), extract_images=extract_images)
-    return {"markdown": markdown_text, "metadata": metadata, "images": image_data }
+
+    results = []
+
+    for pdf_file in pdf_files:
+        if pdf_file.content_type != "application/pdf":
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f'File {pdf_file.filename} has unsupported extension type',
+            )
+        markdown_text, metadata, image_data = parse_pdf_and_return_markdown(await pdf_file.read(), extract_images=extract_images)
+        results.append({
+            "filename": pdf_file.filename,
+            "markdown": markdown_text,
+            "metadata": metadata,
+            "images": image_data,
+        })
+
+    return results
 
 def main():
     # Parse command-line arguments

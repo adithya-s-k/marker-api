@@ -53,17 +53,17 @@ or
 python server.py
 ```
 
-<!-- ### 🛳️ Docker
+### 🛳️ Docker
 
 To use Marker API with Docker, execute the following commands:
 
 1. Pull the Marker API Docker image from Docker Hub:
 2. Run the Docker container, exposing port 8000:
-
+ 👉🏼[Docker Image](https://hub.docker.com/r/savatar101/marker-api)
 ```bash
-docker pull savatar/marker-api
+docker pull savatar101/marker-api:0.1
 
-docker run -p 8000:8000 marker-api
+docker run -p 8000:8000 savatar101/marker-api:0.1
 ```
 
 Alternatively, if you prefer to build the Docker image locally:
@@ -84,9 +84,9 @@ pip install skypilot-nightly[all]
 
 # setup skypilot with the cloud provider our your
 
-sky launch marker-api.yaml
+sky launch skypilot.yaml
 ```
-please refer to skypilot [documentation](https://skypilot.readthedocs.io/en/latest/docs/index.html) for more information. -->
+please refer to skypilot [documentation](https://skypilot.readthedocs.io/en/latest/docs/index.html) for more information.
 
 ## Usage
 
@@ -397,10 +397,10 @@ Thank you to the authors of these models and datasets for making them available 
 
 - [x] Create server
 - [x] Add support for single PDF upload
-- [ ] Add support for multi PDF upload
+- [x] Add support for multi PDF upload
+- [x] Docker support and Skypilot support
 - [ ] Implement handling for multiple PDF uploads simultaneously.
 - [ ] Live update API on progress of conversion
-- [ ] Docker support and Skypilot support
 - [ ] Enhance GPU utilization and optimize performance for efficient processing.
 - [ ] Introduce a toggle mode to generate Markdown without including images in the output.
 - [ ] Implement dynamic adjustment of batch size based on available VRAM.
@@ -412,3 +412,11 @@ Updates on throughput benchmarks will be available soon.
 ## Acknowledgements
 
 This project is built on top of the remarkable [marker](https://github.com/VikParuchuri/marker) project created by [VikParuchuri](https://twitter.com/VikParuchuri). We express our gratitude for the inspiration and foundation provided by this project.
+The dockerfile was create by [maximofn](https://github.com/maximofn) and refer to [marker_api_docker](https://github.com/maximofn/marker_api_docker) for more information
+
+
+<p align="center">
+  <a href="https://adithyask.com">
+    <img src="https://api.star-history.com/svg?repos=adithya-s-k/marker-api&type=Date" alt="Star History Chart">
+  </a>
+</p>

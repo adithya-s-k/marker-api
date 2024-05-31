@@ -1,0 +1,17 @@
+resources:
+  accelerators: A100-80GB
+
+setup: |
+  echo "Begin Setup..."
+
+  conda create -n marker-api-venv python=3.10 -y && conda activate marker-api-venv
+  git clone https://github.com/adithya-s-k/marker-api
+  cd marker-api
+  pip install -e .
+
+run: |
+  echo "Running Server..."
+
+  conda create -n marker-api-ven
+  cd marker-api
+  python server.py --host 0.0.0.0 --post 8000
