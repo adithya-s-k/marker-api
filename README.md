@@ -412,8 +412,6 @@ Updates on throughput benchmarks will be available soon.
 ## Acknowledgements
 
 This project is built on top of the remarkable [marker](https://github.com/VikParuchuri/marker) project created by [VikParuchuri](https://twitter.com/VikParuchuri). We express our gratitude for the inspiration and foundation provided by this project.
-The dockerfile was create by [maximofn](https://github.com/maximofn) and refer to [marker_api_docker](https://github.com/maximofn/marker_api_docker) for more information
-
 
 <p align="center">
   <a href="https://adithyask.com">
