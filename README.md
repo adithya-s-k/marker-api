@@ -61,9 +61,11 @@ To use Marker API with Docker, execute the following commands:
 2. Run the Docker container, exposing port 8000:
  👉🏼[Docker Image](https://hub.docker.com/r/savatar101/marker-api)
 ```bash
-docker pull savatar101/marker-api:0.1
-
-docker run -p 8000:8000 savatar101/marker-api:0.1
+docker pull savatar101/marker-api:0.2
+# if you are running on a gpu 
+docker run --gpus all -p 8000:8000 savatar101/marker-api:0.2
+# else
+docker run -p 8000:8000 savatar101/marker-api:0.2
 ```
 
 Alternatively, if you prefer to build the Docker image locally:
@@ -71,8 +73,11 @@ Then, run the Docker container as follows:
 
 ```bash
 docker build -t marker-api .
-
+# if you are running on a gpu
+docker run --gpus all -p 8000:8000 marker-api
+# else
 docker run -p 8000:8000 marker-api
+
 ```
 
 ### ✈️ Skypilot

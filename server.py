@@ -15,41 +15,27 @@ model_list = load_all_models()
 
 def parse_pdf_and_return_markdown(pdf_file: bytes , extract_images: bool):
     full_text, images, out_meta = convert_single_pdf(pdf_file, model_list)
+    print(images)
     image_data = {}
     if extract_images:
         for i, (filename, image) in enumerate(images.items()):
+            print(f"Processing image {filename}")
+            
             # Save image as PNG
-            image_filepath = f"image_{i+1}.png"
-            image.save(image_filepath, "PNG")
+            image.save(filename, "PNG")
 
             # Read the saved image file as bytes
-            with open(image_filepath, "rb") as f:
+            with open(filename, "rb") as f:
                 image_bytes = f.read()
 
             # Convert image to base64
             image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-            image_data[f'image_{i+1}'] = image_base64
+            image_data[f'{filename}'] = image_base64
 
             # Remove the temporary image file
-            os.remove(image_filepath)
+            os.remove(filename)
 
     return full_text, out_meta, image_data
-    
-
-# @app.post("/convert")
-# async def convert_pdf_to_markdown(pdf_file: UploadFile = File(...), extract_images: bool = True):
-#     if extract_images == False:
-#         Settings.EXTRACT_IMAGES = False
-#         print("Print EXTRACT_IMAGES set to False")
-#     else:
-#         Settings.EXTRACT_IMAGES = True
-#     if pdf_file.content_type != "application/pdf":
-#         raise HTTPException(
-#             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-#             detail=f'File {pdf_file.filename} has unsupported extension type',
-#         )
-#     markdown_text, metadata, image_data = parse_pdf_and_return_markdown(await pdf_file.read(), extract_images=extract_images)
-#     return {"markdown": markdown_text, "metadata": metadata, "images": image_data }
 
 @app.get("/")
 async def server():
