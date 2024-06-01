@@ -1,7 +1,7 @@
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning) # Filter torch pytree user warnings
 
-import pypdfium2 as pdfium
+import pypdfium2 as pdfium # Needs to be at the top to avoid warnings
 from PIL import Image
 
 from marker.utils import flush_cuda_memory
@@ -33,8 +33,9 @@ from marker.settings import settings
 def convert_single_pdf(
         fname: str,
         model_lst: List,
-        max_pages=None,
-        metadata: Optional[Dict]=None,
+        max_pages: int = None,
+        start_page: int = None,
+        metadata: Optional[Dict] = None,
         langs: Optional[List[str]] = None,
         batch_multiplier: int = 1
 ) -> Tuple[str, Dict[str, Image.Image], Dict]:
@@ -58,18 +59,25 @@ def convert_single_pdf(
     }
 
     if filetype == "other": # We can't process this file
-        return "", out_meta
+        return "", {}, out_meta
 
     # Get initial text blocks from the pdf
     doc = pdfium.PdfDocument(fname)
     pages, toc = get_text_blocks(
         doc,
+        fname,
         max_pages=max_pages,
+        start_page=start_page
     )
     out_meta.update({
         "toc": toc,
         "pages": len(pages),
     })
+
+    # Trim pages from doc to align with start page
+    if start_page:
+        for page_idx in range(start_page):
+            doc.del_page(0)
 
     # Unpack models from list
     texify_model, layout_model, order_model, edit_model, detection_model, ocr_model = model_lst
@@ -85,7 +93,7 @@ def convert_single_pdf(
     out_meta["ocr_stats"] = ocr_stats
     if len([b for p in pages for b in p.blocks]) == 0:
         print(f"Could not extract any text blocks for {fname}")
-        return "", out_meta
+        return "", {}, out_meta
 
     surya_layout(doc, pages, layout_model, batch_multiplier=batch_multiplier)
     flush_cuda_memory()
@@ -98,7 +106,7 @@ def convert_single_pdf(
     annotate_block_types(pages)
 
     # Dump debug data if flags are set
-    dump_bbox_debug_data(doc, pages)
+    dump_bbox_debug_data(doc, fname, pages)
 
     # Find reading order for blocks
     # Sort blocks by reading order

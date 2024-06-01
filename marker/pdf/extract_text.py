@@ -74,15 +74,23 @@ def pdftext_format_to_blocks(page, pnum: int) -> Page:
     return out_page
 
 
-def get_text_blocks(doc, max_pages: Optional[int] = None) -> (List[Page], Dict):
+def get_text_blocks(doc, fname, max_pages: Optional[int] = None, start_page: Optional[int] = None) -> (List[Page], Dict):
     toc = get_toc(doc)
 
-    page_range = range(len(doc))
-    if max_pages:
-        range_end = min(max_pages, len(doc))
-        page_range = range(range_end)
+    if start_page:
+        assert start_page < len(doc)
+    else:
+        start_page = 0
 
-    char_blocks = dictionary_output(doc, page_range=page_range, keep_chars=True)
+    if max_pages:
+        if max_pages + start_page > len(doc):
+            max_pages = len(doc) - start_page
+    else:
+        max_pages = len(doc) - start_page
+
+    page_range = range(start_page, start_page + max_pages)
+
+    char_blocks = dictionary_output(fname, page_range=page_range, keep_chars=True, workers=settings.PDFTEXT_CPU_WORKERS)
     marker_blocks = [pdftext_format_to_blocks(page, pnum) for pnum, page in enumerate(char_blocks)]
 
     return marker_blocks, toc

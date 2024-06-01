@@ -1,3 +1,4 @@
+import tempfile
 from itertools import repeat
 from typing import List, Optional, Dict
 
@@ -47,17 +48,7 @@ def run_ocr(doc, pages: List[Page], langs: List[str], rec_model, batch_multiplie
     if ocr_method is None:
         return pages, {"ocr_pages": 0, "ocr_failed": 0, "ocr_success": 0, "ocr_engine": "none"}
     elif ocr_method == "surya":
-        # Load model just in time if we're not OCRing everything
-        del_rec_model = False
-        if rec_model is None:
-            lang_tokens = langs_to_ids(langs)
-            rec_model = setup_recognition_model(lang_tokens)
-            del_rec_model = True
-
         new_pages = surya_recognition(doc, ocr_idxs, langs, rec_model, pages, batch_multiplier=batch_multiplier)
-
-        if del_rec_model:
-            del rec_model
     elif ocr_method == "ocrmypdf":
         new_pages = tesseract_recognition(doc, ocr_idxs, langs)
     else:
@@ -82,7 +73,7 @@ def surya_recognition(doc, page_idxs, langs: List[str], rec_model, pages: List[P
     detection_results = [p.text_lines.bboxes for p in selected_pages]
     polygons = [[b.polygon for b in bboxes] for bboxes in detection_results]
 
-    results = run_recognition(images, surya_langs, rec_model, processor, polygons=polygons, batch_size=get_batch_size() * batch_multiplier)
+    results = run_recognition(images, surya_langs, rec_model, processor, polygons=polygons, batch_size=int(get_batch_size() * batch_multiplier))
 
     new_pages = []
     for (page_idx, result, old_page) in zip(page_idxs, results, selected_pages):
@@ -160,9 +151,12 @@ def _tesseract_recognition(in_pdf, langs: List[str]) -> Optional[Page]:
         tesseract_non_ocr_timeout=settings.TESSERACT_TIMEOUT,
     )
 
-    new_doc = pdfium.PdfDocument(out_pdf.getvalue())
+    with tempfile.NamedTemporaryFile() as f:
+        f.write(out_pdf.getvalue())
+        f.seek(0)
+        new_doc = pdfium.PdfDocument(f.name)
+        blocks, _ = get_text_blocks(new_doc, f.name, max_pages=1)
 
-    blocks, _ = get_text_blocks(new_doc, max_pages=1)
     page = blocks[0]
     page.ocr_method = "tesseract"
     return page

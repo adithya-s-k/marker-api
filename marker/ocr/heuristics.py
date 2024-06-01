@@ -8,11 +8,15 @@ from marker.settings import settings
 
 
 def should_ocr_page(page: Page, no_text: bool):
-    detected_lines_found = detected_line_coverage(page)
+    detected_lines_found, total_lines = detected_line_coverage(page)
+
+    # No reason to OCR page if it has no text lines
+    if total_lines == 0:
+        return False
 
     # OCR page if we got minimal text, or if we got too many spaces
     conditions = [
-        no_text , # Full doc has no text, and needs full OCR
+        no_text, # Full doc has no text, and needs full OCR
         (len(page.prelim_text) > 0 and detect_bad_ocr(page.prelim_text)),  # Bad OCR
         detected_lines_found is False, # didn't extract text for all detected lines
     ]
@@ -39,7 +43,7 @@ def detect_bad_ocr(text, space_threshold=.7, newline_threshold=.6, alphanum_thre
         return True
 
     invalid_chars = len([c for c in text if c in settings.INVALID_CHARS])
-    if invalid_chars > max(4.0, len(text) * .03):
+    if invalid_chars > max(6.0, len(text) * .03):
         return True
 
     return False
@@ -52,10 +56,9 @@ def no_text_found(pages: List[Page]):
     return len(full_text.strip()) == 0
 
 
-def detected_line_coverage(page: Page, intersect_thresh=.5, detection_thresh=.65):
+def detected_line_coverage(page: Page, intersect_thresh=.5, detection_thresh=.4):
     found_lines = 0
     for detected_line in page.text_lines.bboxes:
-
         # Get bbox and rescale to match dimensions of original page
         detected_bbox = detected_line.bbox
         detected_bbox = rescale_bbox(page.text_lines.image_bbox, page.bbox, detected_bbox)
@@ -70,5 +73,6 @@ def detected_line_coverage(page: Page, intersect_thresh=.5, detection_thresh=.65
 
     total_lines = len(page.text_lines.bboxes)
     if total_lines == 0:
-        return False
-    return found_lines / total_lines > detection_thresh
+        return True, 0
+
+    return found_lines / total_lines > detection_thresh, total_lines
