@@ -72,6 +72,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run the marker-api server.")
     parser.add_argument("--host", default="127.0.0.1", help="Host IP address")
     parser.add_argument("--port", type=int, default=8000, help="Port number")
+    parser.add_argument("--workers", type=int, default=4, help="number of workers")
     args = parser.parse_args()
 
     # Load all models before starting the server
@@ -79,7 +80,7 @@ def main():
 
     # Start the server
     import uvicorn
-    uvicorn.run(app, host=args.host, port=args.port)
+    uvicorn.run(app, host=args.host, port=args.port , workers=args.workers)
 
 if __name__ == "__main__":
     main()
