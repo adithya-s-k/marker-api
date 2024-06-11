@@ -1,4 +1,5 @@
 from typing import Optional, List, Dict, Literal
+import os
 
 from dotenv import find_dotenv
 from pydantic import computed_field
@@ -90,6 +91,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False # Enable debug logging
     DEBUG_DATA_FOLDER: Optional[str] = None
     DEBUG_LEVEL: int = 0 # 0 to 2, 2 means log everything
+    LOG_FILE: str = os.path.join(os.getcwd(), 'logs', 'app.log')
 
     @computed_field
     @property
