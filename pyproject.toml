@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "marker-api"
-version = "0.0.2"
+version = "0.0.3"
 description = "Convert PDF to markdown with high speed and accuracy through an API"
 authors = ["Adithya S KOlavi <github@adithya-s-k>"]
 readme = "README.md"
