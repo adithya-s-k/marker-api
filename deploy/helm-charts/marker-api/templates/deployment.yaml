@@ -30,7 +30,7 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           command: ["uvicorn"]
-          args: ["server:app", "--host", "0.0.0.0", "--port", "8000", "--root-path", "{{ .Values.ingress.path }}", "--workers", "{{ .Values.server.workers }}"]
+          args: ["server:app", "--host=0.0.0.0", "--port=8000", "--workers={{ .Values.server.workers }}"]
           env:
           - name: MKL_SERVICE_FORCE_INTEL
             value: "1"
