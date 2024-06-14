@@ -22,10 +22,15 @@ logger = logging.getLogger(__name__)
 model_list = None
 
 
-
+# Event that runs on startup to load all models
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global model_list
+    model_list = load_all_models()
+    yield
 
 # Initialize FastAPI app
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 # Add CORS middleware to allow cross-origin requests
 app.add_middleware(
