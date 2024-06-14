@@ -1,25 +1,62 @@
 import os
+import asyncio
 import argparse
+import time
 import base64
-from fastapi import FastAPI, UploadFile, File, status, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List
-from marker.convert import convert_single_pdf
-from marker.logger import configure_logging
-from marker.models import load_all_models
-from marker.settings import Settings
-# from marker.output import save_markdown
+import concurrent.futures
+from marker.parse import parse_single_pdf  # Import function to parse PDF
+from marker.logger import configure_logging  # Import logging configuration
+from marker.models import load_all_models  # Import function to load models
+from marker.settings import Settings  # Import settings
+from contextlib import asynccontextmanager
+import logging
 
+# Initialize logging
+configure_logging()
+logger = logging.getLogger(__name__)
+
+# Global variable to hold model list
+model_list = None
+
+
+
+
+# Initialize FastAPI app
 app = FastAPI()
 
-model_list = load_all_models()
+# Add CORS middleware to allow cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
 
-def parse_pdf_and_return_markdown(pdf_file: bytes , extract_images: bool):
-    full_text, images, out_meta = convert_single_pdf(pdf_file, model_list)
-    print(images)
+
+
+# Function to parse PDF and return markdown, metadata, and image data
+def parse_pdf_and_return_markdown(pdf_file: bytes, extract_images: bool):
+    """
+    Function to parse a PDF and extract text and images.
+
+    Args:
+    pdf_file (bytes): The content of the PDF file.
+    extract_images (bool): Whether to extract images or not.
+
+    Returns:
+    tuple: A tuple containing the full text, metadata, and image data (if extracted).
+    """
+    logger.debug("Parsing PDF file")
+    full_text, images, out_meta = parse_single_pdf(pdf_file, model_list)
+    logger.debug(f"Images extracted: {list(images.keys())}")
     image_data = {}
     if extract_images:
         for i, (filename, image) in enumerate(images.items()):
-            print(f"Processing image {filename}")
+            logger.debug(f"Processing image {filename}")
             
             # Save image as PNG
             image.save(filename, "PNG")
@@ -37,50 +74,72 @@ def parse_pdf_and_return_markdown(pdf_file: bytes , extract_images: bool):
 
     return full_text, out_meta, image_data
 
+# Function to process a single PDF file
+def process_pdf_file(file_content: bytes, filename: str):
+    """
+    Function to process a single PDF file.
+
+    Args:
+    file_content (bytes): The content of the PDF file.
+    filename (str): The name of the PDF file.
+
+    Returns:
+    dict: A dictionary containing the filename, markdown text, metadata, image data, status, and processing time.
+    """
+    entry_time = time.time()
+    logger.info(f"Entry time for {filename}: {entry_time}")
+    markdown_text, metadata, image_data = parse_pdf_and_return_markdown(file_content, extract_images=False)
+    completion_time = time.time()
+    logger.info(f"Model processes complete time for {filename}: {completion_time}")
+    time_difference = completion_time - entry_time
+    return {
+        "filename": filename,
+        "markdown": markdown_text,
+        "metadata": metadata,
+        "images": image_data,
+        "status": "ok",
+        "time": time_difference
+    }
+
+
+# Root endpoint to check server status
 @app.get("/")
-async def server():
-    return {"Welcome to marker api server"}
+def server():
+    """
+    Root endpoint to check server status.
 
+    Returns:
+    dict: A welcome message.
+    """
+    return {"message": "Welcome to Marker-api"}
+
+# Endpoint to convert a single PDF to markdown
 @app.post("/convert")
-async def convert_pdf_to_markdown(pdf_files: List[UploadFile] = File(...), extract_images: bool = True):
-    if extract_images == False:
-        Settings.EXTRACT_IMAGES = False
-        print("EXTRACT_IMAGES set to False")
-    else:
-        Settings.EXTRACT_IMAGES = True
+async def convert_pdf_to_markdown(pdf_file: UploadFile):
+    """
+    Endpoint to convert a single PDF to markdown.
 
-    results = []
+    Args:
+    pdf_file (UploadFile): The uploaded PDF file.
 
-    for pdf_file in pdf_files:
-        if pdf_file.content_type != "application/pdf":
-            raise HTTPException(
-                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail=f'File {pdf_file.filename} has unsupported extension type',
-            )
-        markdown_text, metadata, image_data = parse_pdf_and_return_markdown(await pdf_file.read(), extract_images=extract_images)
-        results.append({
-            "filename": pdf_file.filename,
-            "markdown": markdown_text,
-            "metadata": metadata,
-            "images": image_data,
-        })
+    Returns:
+    dict: The response from processing the PDF file.
+    """
+    logger.debug(f"Received file: {pdf_file.filename}")
+    file = await pdf_file.read()
+    response = process_pdf_file(file, pdf_file.filename)
+    return response
 
-    return results
-
+# Main function to run the server
 def main():
-    # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Run the marker-api server.")
-    parser.add_argument("--host", default="127.0.0.1", help="Host IP address")
+    parser.add_argument("--host", default="0.0.0.0", help="Host IP address")
     parser.add_argument("--port", type=int, default=8000, help="Port number")
-    parser.add_argument("--workers", type=int, default=4, help="number of workers")
     args = parser.parse_args()
-
-    # Load all models before starting the server
-    configure_logging()  # Assuming this function initializes logging    
-
-    # Start the server
+    
     import uvicorn
-    uvicorn.run(app, host=args.host, port=args.port , workers=args.workers)
+    uvicorn.run("server:app", host=args.host, port=args.port)
 
+# Entry point to start the server
 if __name__ == "__main__":
     main()
