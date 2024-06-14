@@ -135,6 +135,31 @@ async def convert_pdf_to_markdown(pdf_file: UploadFile):
     response = process_pdf_file(file, pdf_file.filename)
     return response
 
+# Endpoint to convert multiple PDFs to markdown
+@app.post("/batch_convert")
+async def convert_pdfs_to_markdown(pdf_file: List[UploadFile] = File(...)):
+    """
+    Endpoint to convert multiple PDFs to markdown.
+
+    Args:
+    pdf_files (List[UploadFile]): The list of uploaded PDF files.
+
+    Returns:
+    list: The responses from processing each PDF file.
+    """
+    logger.debug(f"Received {len(pdf_file)} files for batch conversion")
+    async def process_files(files):
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+            coroutines = [
+                loop.run_in_executor(pool, process_pdf_file, await file.read(), file.filename)
+                for file in files
+            ]
+            return await asyncio.gather(*coroutines)
+
+    responses = await process_files(pdf_file)
+    return responses
+
 # Main function to run the server
 def main():
     parser = argparse.ArgumentParser(description="Run the marker-api server.")
