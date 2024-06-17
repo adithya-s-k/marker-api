@@ -26,6 +26,7 @@ model_list = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model_list
+    logger.debug("--------------------- Loading OCR Model -----------------------")
     model_list = load_all_models()
     yield
 
@@ -93,7 +94,7 @@ def process_pdf_file(file_content: bytes, filename: str):
     """
     entry_time = time.time()
     logger.info(f"Entry time for {filename}: {entry_time}")
-    markdown_text, metadata, image_data = parse_pdf_and_return_markdown(file_content, extract_images=False)
+    markdown_text, metadata, image_data = parse_pdf_and_return_markdown(file_content, extract_images=True)
     completion_time = time.time()
     logger.info(f"Model processes complete time for {filename}: {completion_time}")
     time_difference = completion_time - entry_time
@@ -133,7 +134,7 @@ async def convert_pdf_to_markdown(pdf_file: UploadFile):
     logger.debug(f"Received file: {pdf_file.filename}")
     file = await pdf_file.read()
     response = process_pdf_file(file, pdf_file.filename)
-    return response
+    return [response]
 
 # Endpoint to convert multiple PDFs to markdown
 @app.post("/batch_convert")
