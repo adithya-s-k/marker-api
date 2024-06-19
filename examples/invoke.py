@@ -1,6 +1,5 @@
 import os
 import requests
-from PIL import Image
 import base64
 import argparse
 
