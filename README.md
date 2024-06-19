@@ -63,11 +63,11 @@ To use Marker API with Docker, execute the following commands:
 2. Run the Docker container, exposing port 8000:
  👉🏼[Docker Image](https://hub.docker.com/r/savatar101/marker-api)
 ```bash
-docker pull savatar101/marker-api:0.2
+docker pull savatar101/marker-api:0.3
 # if you are running on a gpu 
-docker run --gpus all -p 8000:8000 savatar101/marker-api:0.2
+docker run --gpus all -p 8000:8000 savatar101/marker-api:0.3
 # else
-docker run -p 8000:8000 savatar101/marker-api:0.2
+docker run -p 8000:8000 savatar101/marker-api:0.3
 ```
 
 Alternatively, if you prefer to build the Docker image locally:
@@ -96,6 +96,9 @@ sky launch skypilot.yaml
 please refer to skypilot [documentation](https://skypilot.readthedocs.io/en/latest/docs/index.html) for more information.
 
 ## Usage
+
+API Client Code:
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/adithya-s-k/marker-api/blob/master/examples/invoke.ipynb)
 
 ### Endpoint
 
@@ -408,11 +411,11 @@ Thank you to the authors of these models and datasets for making them available 
 - [x] Add support for single PDF upload
 - [x] Add support for multi PDF upload
 - [x] Docker support and Skypilot support
-- [ ] Implement handling for multiple PDF uploads simultaneously.
-- [ ] Live update API on progress of conversion
-- [ ] Enhance GPU utilization and optimize performance for efficient processing.
-- [ ] Introduce a toggle mode to generate Markdown without including images in the output.
+- [x] Implement handling for multiple PDF uploads simultaneously.
+- [x] Introduce a toggle mode to generate Markdown without including images in the output.
+- [x] Enhance GPU utilization and optimize performance for efficient processing.
 - [ ] Implement dynamic adjustment of batch size based on available VRAM.
+- [ ] Live update API on progress of conversion
 
 ## Throughput Benchmarks
 
