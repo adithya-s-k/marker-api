@@ -142,7 +142,6 @@ API Client Code:
 ```bash
 curl -X POST \
   -F "pdf_file=@example.pdf;type=application/pdf" \
-  -F "extract_images=true" \
   http://localhost:8000/convert
 ```
 
@@ -159,8 +158,7 @@ pdf_file_path = "example.pdf"
 with open(pdf_file_path, 'rb') as pdf_file:
     pdf_content = pdf_file.read()
 files = {'pdf_file': (os.path.basename(pdf_file_path), pdf_content, 'application/pdf')}
-params = {'extract_images': True}  # Optional parameter
-response = requests.post(url, files=files, params=params)
+response = requests.post(url, files=files)
 
 print(response.json())
 ```
@@ -182,7 +180,6 @@ fs.readFile(pdfFilePath, (err, pdfContent) => {
 
     const formData = new FormData();
     formData.append('pdf_file', new Blob([pdfContent], { type: 'application/pdf' }), pdfFilePath);
-    formData.append('extract_images', true); // Optional parameter
 
     fetch(url, {
         method: 'POST',
