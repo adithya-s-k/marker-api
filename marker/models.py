@@ -1,5 +1,5 @@
 from marker.postprocessors.editor import load_editing_model
-from surya.model.detection import segformer
+from surya.model.detection import model as segformer
 from texify.model.model import load_model as load_texify_model
 from texify.model.processor import load_processor as load_texify_processor
 from marker.settings import settings
