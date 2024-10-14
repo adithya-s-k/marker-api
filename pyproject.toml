@@ -9,7 +9,8 @@ packages = [{include = "marker_api"}]
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 fastapi = "^0.115.0"
-celery = "^5.4.0"
+uvicorn = "^0.31.1"
+celery = {extras = ["redis"], version = "=5.3.6"}
 flower = "^2.0.1"
 hf-transfer = "^0.1.8"
 huggingface-hub = "^0.25.1"
@@ -19,6 +20,9 @@ redis = "^5.1.1"
 requests = "^2.32.3"
 rich = "^13.9.2"
 marker-pdf = "^0.2.17"
+pynvml = "^11.5.3"
+art = "^6.3"
+
 
 
 [build-system]
