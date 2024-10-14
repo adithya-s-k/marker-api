@@ -1,0 +1,63 @@
+ARG CUDA_VERSION="11.8.0"
+ARG CUDNN_VERSION="8"
+ARG UBUNTU_VERSION="22.04"
+ARG MAX_JOBS=4
+
+FROM nvidia/cuda:$CUDA_VERSION-cudnn$CUDNN_VERSION-devel-ubuntu$UBUNTU_VERSION
+
+# ARG PYTHON_VERSION="3.11"
+# ARG PYTORCH_VERSION="2.1.2"
+# ARG CUDA="118"
+# ARG TORCH_CUDA_ARCH_LIST="7.0 7.5 8.0 8.6 9.0+PTX"
+
+# ENV PYTHON_VERSION=$PYTHON_VERSION
+# ENV TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST
+
+# RUN apt-get update \
+#     && apt-get install -y wget git build-essential ninja-build git-lfs libaio-dev && rm -rf /var/lib/apt/lists/* \
+#     && wget \
+#     https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
+#     && mkdir /root/.conda \
+#     && bash Miniconda3-latest-Linux-x86_64.sh -b \
+#     && rm -f Miniconda3-latest-Linux-x86_64.sh \
+#     && conda create -n "py${PYTHON_VERSION}" python="${PYTHON_VERSION}"
+
+# ENV PATH="/root/miniconda3/envs/py${PYTHON_VERSION}/bin:${PATH}"
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    wget \
+    curl \
+    unzip \
+    git \
+    python3 \
+    python3-pip \
+    libgl1 \
+    libglib2.0-0 \
+    curl \
+    gnupg2 \
+    ca-certificates \
+    apt-transport-https \
+    software-properties-common \
+    libreoffice \
+    ffmpeg \
+    git-lfs \
+    xvfb \
+    && ln -s /usr/bin/python3 /usr/bin/python \
+    && apt-get update \
+    && apt install python3-packaging \    
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+WORKDIR /app
+
+# Copy the project files into the Docker image
+COPY ../ ./
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -e .
+
+EXPOSE 8080
+
+CMD ["python", "server.py", "--host", "0.0.0.0", "--port", "8080"]
