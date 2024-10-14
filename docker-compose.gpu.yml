@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  celery_worker:
+    build:
+      context: .  # Keep the build context as the root directory
+      dockerfile: docker/Dockerfile.gpu.distributed-server  # Specify the new path to the GPU Dockerfile
+    command: celery -A marker_api.celery_worker.celery_app worker --pool=solo --loglevel=info
+    image: marker-api-gpu-image
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]  # Request GPU support
+
+  app:
+    container_name: marker-api-gpu
+    image: marker-api-gpu-image 
+    command: python distributed_server.py --host 0.0.0.0 --port 8080
+    environment:
+      - ENV=production
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - celery_worker
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]  # Request GPU support
+
+  redis:
+    container_name: redis
+    image: redis:7.2.4-alpine
+    ports:
+      - "6379:6379"
+
+  flower:
+    container_name: flower_gpu
+    image: marker-api-gpu-image 
+    command: celery -A marker_api.celery_worker.celery_app flower --port=5555
+    ports:
+      - 5556:5555
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+    depends_on:
+      - app
+      - redis
+      - celery_worker
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]  # Request GPU support
