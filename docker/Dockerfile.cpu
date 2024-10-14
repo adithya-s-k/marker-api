@@ -1,0 +1,19 @@
+# Use a base image with Python
+FROM python:3.11-slim
+
+# Install system dependencies required for libGL
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the project files into the Docker image
+COPY ../ ./
+
+# Install Python dependencies
+RUN pip install -e .
+
+EXPOSE 8080
