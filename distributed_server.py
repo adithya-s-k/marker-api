@@ -11,7 +11,6 @@ from marker_api.celery_routes import (
     celery_live_root,
     celery_convert_pdf,
     celery_result,
-    celery_convert_pdf_sync,
     celery_convert_pdf_concurrent_await,
 )
 
