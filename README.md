@@ -24,7 +24,7 @@
 
 | Original PDF | Marker-API | PyPDF |
 |--------------|------------|-------|
-| ![Original PDF](./data/images/original_pdf.png) | ![Marker-API](./data/images/marker_api.png) | ![PyPDF](./data/images/pypdf.png) |
+| ![Original PDF](https://raw.githubusercontent.com/adithya-s-k/marker-api/refs/heads/master/data/images/original_pdf.png) | ![Marker-API](https://raw.githubusercontent.com/adithya-s-k/marker-api/refs/heads/master/data/images/marker_api.png) | ![PyPDF](https://raw.githubusercontent.com/adithya-s-k/marker-api/refs/heads/master/data/images/pypdf.png) |
 
 Here’s an improved version of the **features section**, along with the **comparison table** and **setup details**:
 
