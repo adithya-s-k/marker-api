@@ -157,22 +157,15 @@ Each new terminal will spin up a new worker, allowing the system to handle more 
 
 For an even more seamless setup, you can use Docker Compose, which helps run all services within containers. Here’s how to do it.
 
-##### **Step 1: Build the Docker image for the distributed server**
 
-- **For GPU Setup**:
-
-    ```bash
-    docker build -f docker/Dockerfile.gpu.distributed-server -t marker-api-gpu .
-    ```
-
-##### **Step 2: Start the distributed server with Docker Compose**
+##### **Step 1: Start the distributed server with Docker Compose**
 
 Use Docker Compose to orchestrate all the services.
 
 - **Without Scaling**:
 
     ```bash
-    sudo docker-compose -f docker-compose.gpu.yml up
+    sudo docker-compose -f docker-compose.gpu.yml up --build
     ```
 
 This command will start:
@@ -180,14 +173,14 @@ This command will start:
 - **FastAPI** on port 8080.
 - **Redis** for managing task queue messages.
 - **Celery Worker** to handle background tasks.
-- **Flower** on port 5555 to monitor the Celery tasks.
+- **Flower** on port 5556 to monitor the Celery tasks.
 
-##### **Step 3: Scale Celery Workers with Docker Compose**
+##### **Step 2: Scale Celery Workers with Docker Compose**
 
 To scale up Celery workers, you can use the `--scale` option:
 
 ```bash
-sudo docker-compose -f docker-compose.gpu.yml up --scale celery_worker=3
+sudo docker-compose -f docker-compose.gpu.yml up --build --scale celery_worker=3
 ```
 
 - This command will start **3 Celery workers**, increasing the task processing capacity of the system.
