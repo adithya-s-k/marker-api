@@ -1,22 +1,26 @@
 import os
 import asyncio
 import argparse
-import time
-import base64
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import concurrent.futures
-from marker.convert import convert_single_pdf  # Import function to parse PDF
 from marker.logger import configure_logging  # Import logging configuration
 from marker.models import load_all_models  # Import function to load models
-from marker.settings import Settings  # Import settings
 from marker_api.routes import (
     process_pdf_file,
 )
 from marker_api.utils import print_markerapi_text_art
 from contextlib import asynccontextmanager
 import logging
+import gradio as gr
+from marker_api.model.schema import (
+    BatchConversionResponse,
+    ConversionResponse,
+    HealthResponse,
+    ServerType,
+)
+from marker_api.demo import demo_ui
 
 # Initialize logging
 configure_logging()
@@ -48,67 +52,50 @@ app.add_middleware(
     allow_credentials=True,
 )
 
+app = gr.mount_gradio_app(app, demo_ui, path="")
 
-# Root endpoint to check server status
-@app.get("/")
+
+@app.get("/health", response_model=HealthResponse)
 def server():
     """
     Root endpoint to check server status.
-
-    Returns:
-    dict: A welcome message.
     """
-    return {"message": "Welcome to Marker-api"}
+    return HealthResponse(message="Welcome to Marker-api", type=ServerType.simple)
 
 
 # Endpoint to convert a single PDF to markdown
-@app.post("/convert")
+@app.post("/convert", response_model=ConversionResponse)
 async def convert_pdf_to_markdown(pdf_file: UploadFile):
     """
     Endpoint to convert a single PDF to markdown.
-
-    Args:
-    pdf_file (UploadFile): The uploaded PDF file.
-
-    Returns:
-    dict: The response from processing the PDF file.
     """
     logger.debug(f"Received file: {pdf_file.filename}")
     file = await pdf_file.read()
-    response = process_pdf_file(file, pdf_file.filename)
-    return [response]
+    response = process_pdf_file(file, pdf_file.filename, model_list)
+    return ConversionResponse(status="Success", result=response)
 
 
 # Endpoint to convert multiple PDFs to markdown
-@app.post("/batch_convert")
-async def convert_pdfs_to_markdown(pdf_file: List[UploadFile] = File(...)):
+@app.post("/batch_convert", response_model=BatchConversionResponse)
+async def convert_pdfs_to_markdown(pdf_files: List[UploadFile] = File(...)):
     """
-
-    (Unstable) this endpoint is unstable and tends to break due to semaphore issues
-
     Endpoint to convert multiple PDFs to markdown.
-
-    Args:
-    pdf_files (List[UploadFile]): The list of uploaded PDF files.
-
-    Returns:
-    list: The responses from processing each PDF file.
     """
-    logger.debug(f"Received {len(pdf_file)} files for batch conversion")
+    logger.debug(f"Received {len(pdf_files)} files for batch conversion")
 
     async def process_files(files):
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             coroutines = [
                 loop.run_in_executor(
-                    pool, process_pdf_file, await file.read(), file.filename
+                    pool, process_pdf_file, await file.read(), file.filename, model_list
                 )
                 for file in files
             ]
             return await asyncio.gather(*coroutines)
 
-    responses = await process_files(pdf_file)
-    return responses
+    responses = await process_files(pdf_files)
+    return BatchConversionResponse(results=responses)
 
 
 # Main function to run the server
@@ -120,7 +107,7 @@ def main():
 
     import uvicorn
 
-    uvicorn.run("simple_server:app", host=args.host, port=args.port)
+    uvicorn.run("server:app", host=args.host, port=args.port)
 
 
 # Entry point to start the server
