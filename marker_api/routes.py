@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 # Function to parse PDF and return markdown, metadata, and image data
-def parse_pdf_and_return_markdown(pdf_file: bytes, extract_images: bool, model_list):
+def parse_pdf_and_return_markdown(pdf_file: bytes, extract_images: bool, model_list, **kwargs):
     """
     Function to parse a PDF and extract text and images.
 
@@ -23,7 +23,7 @@ def parse_pdf_and_return_markdown(pdf_file: bytes, extract_images: bool, model_l
     tuple: A tuple containing the full text, metadata, and image data (if extracted).
     """
     logger.debug("Parsing PDF file")
-    full_text, images, out_meta = convert_single_pdf(pdf_file, model_list)
+    full_text, images, out_meta = convert_single_pdf(pdf_file, model_list, **kwargs)
     logger.debug(f"Images extracted: {list(images.keys())}")
     image_data = {}
     if extract_images:
@@ -48,7 +48,7 @@ def parse_pdf_and_return_markdown(pdf_file: bytes, extract_images: bool, model_l
 
 
 # Function to process a single PDF file
-def process_pdf_file(file_content: bytes, filename: str, model_list):
+def process_pdf_file(file_content: bytes, filename: str, model_list, **kwargs):
     """
     Function to process a single PDF file.
 
@@ -63,7 +63,7 @@ def process_pdf_file(file_content: bytes, filename: str, model_list):
     entry_time = time.time()
     logger.info(f"Entry time for {filename}: {entry_time}")
     markdown_text, metadata, image_data = parse_pdf_and_return_markdown(
-        file_content, extract_images=True, model_list=model_list
+        file_content, extract_images=True, model_list=model_list, **kwargs
     )
     completion_time = time.time()
     logger.info(f"Model processes complete time for {filename}: {completion_time}")
