@@ -52,9 +52,6 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-app = gr.mount_gradio_app(app, demo_ui, path="")
-
-
 @app.get("/health", response_model=HealthResponse)
 def server():
     """
@@ -97,6 +94,8 @@ async def convert_pdfs_to_markdown(pdf_files: List[UploadFile] = File(...)):
     responses = await process_files(pdf_files)
     return BatchConversionResponse(results=responses)
 
+# Mount the Gradio app last as the other routes are unavailable otherwise
+gr.mount_gradio_app(app, demo_ui, path="")
 
 # Main function to run the server
 def main():
