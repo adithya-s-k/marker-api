@@ -53,24 +53,23 @@ def parse_document(input_file_path, parameters, request: gr.Request):
             mime_type = "application/octet-stream"  # Default MIME type if not found
 
         with open(input_file_path, "rb") as f:
-            files = {"file": (input_file_path, f, mime_type)}
+            files = {"pdf_file": (input_file_path, f, mime_type)}
             response = requests.post(
                 post_url, files=files, headers={"accept": "application/json"}
             )
 
         document_response = response.json()
-
-        images = document_response.get("images", [])
-
+        result = document_response.get("result", {})
+        markdown_text = str(result.get("markdown", ""))
+        images = result.get("images", {})
+        
         # Decode each base64-encoded image to a PIL image
-        pil_images = [
-            decode_base64_to_pil(image_dict["image"]) for image_dict in images
-        ]
-
+        pil_images = [decode_base64_to_pil(img) for img in images.values()]
+        
         return (
-            str(document_response["text"]),
+            markdown_text,
             gr.Gallery(value=pil_images, visible=True),
-            str(document_response["text"]),
+            markdown_text,
             gr.JSON(value=document_response, visible=True),
         )
 
