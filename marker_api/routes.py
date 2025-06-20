@@ -2,6 +2,7 @@ import os
 import time
 import base64
 from marker.convert import convert_single_pdf
+from marker.models import load_all_models
 from marker.logger import configure_logging
 import logging
 
@@ -18,61 +19,111 @@ def parse_pdf_and_return_markdown(pdf_file: bytes, extract_images: bool, model_l
     Args:
     pdf_file (bytes): The content of the PDF file.
     extract_images (bool): Whether to extract images or not.
-
-    Returns
-    tuple: A tuple containing the full text, metadata, and image data (if extracted).
-    """
-    logger.debug("Parsing PDF file")
-    full_text, images, out_meta = convert_single_pdf(pdf_file, model_list)
-    logger.debug(f"Images extracted: {list(images.keys())}")
-    image_data = {}
-    if extract_images:
-        for i, (filename, image) in enumerate(images.items()):
-            logger.debug(f"Processing image {filename}")
-
-            # Save image as PNG
-            image.save(filename, "PNG")
-
-            # Read the saved image file as bytes
-            with open(filename, "rb") as f:
-                image_bytes = f.read()
-
-            # Convert image to base64
-            image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-            image_data[f"{filename}"] = image_base64
-
-            # Remove the temporary image file
-            os.remove(filename)
-
-    return full_text, out_meta, image_data
-
-
-# Function to process a single PDF file
-def process_pdf_file(file_content: bytes, filename: str, model_list):
-    """
-    Function to process a single PDF file.
-
-    Args:
-    file_content (bytes): The content of the PDF file.
-    filename (str): The name of the PDF file.
-    model_list: The list of loaded models.
+    model_list: The model list from load_all_models()
 
     Returns:
-    dict: A dictionary containing the filename, markdown text, metadata, image data, status, and processing time.
+    tuple: A tuple containing the full text, metadata, and image data.
     """
-    entry_time = time.time()
-    logger.info(f"Entry time for {filename}: {entry_time}")
-    markdown_text, metadata, image_data = parse_pdf_and_return_markdown(
-        file_content, extract_images=True, model_list=model_list
-    )
-    completion_time = time.time()
-    logger.info(f"Model processes complete time for {filename}: {completion_time}")
-    time_difference = completion_time - entry_time
-    return {
-        "filename": filename,
-        "markdown": markdown_text,
-        "metadata": metadata,
-        "images": image_data,
-        "status": "ok",
-        "time": time_difference,
-    }
+    try:
+        start_time = time.time()
+        
+        # Convert PDF using marker
+        full_text, images, out_meta = convert_single_pdf(
+            pdf_file, 
+            model_list, 
+            max_pages=None,
+            langs=None,
+            batch_multiplier=1,
+            start_page=None
+        )
+        
+        end_time = time.time()
+        processing_time = end_time - start_time
+        
+        logger.info(f"PDF processing completed in {processing_time:.2f} seconds")
+        
+        # Process images if extraction is enabled
+        image_data = {}
+        if extract_images and images:
+            for i, image in enumerate(images):
+                if image is not None:
+                    try:
+                        # Check if image is already a PIL Image or needs conversion
+                        from PIL import Image as PILImage
+                        import io
+                        
+                        if isinstance(image, str):
+                            # If it's a string, it might be a base64 encoded image or file path
+                            logger.warning(f"Image {i} is a string: {type(image)}")
+                            continue
+                        elif hasattr(image, 'save'):
+                            # It's a PIL Image object
+                            buffer = io.BytesIO()
+                            image.save(buffer, format='PNG')
+                            img_str = base64.b64encode(buffer.getvalue()).decode()
+                            image_data[f"image_{i}"] = img_str
+                        else:
+                            logger.warning(f"Unknown image type for image {i}: {type(image)}")
+                            continue
+                    except Exception as img_error:
+                        logger.error(f"Error processing image {i}: {str(img_error)}")
+                        continue
+        
+        return full_text, out_meta, image_data, processing_time
+        
+    except Exception as e:
+        logger.error(f"Error processing PDF: {str(e)}")
+        raise
+
+
+def process_pdf_file(pdf_file: bytes, filename: str = None, model_list=None, extract_images: bool = True):
+    """
+    Process a PDF file and return markdown text with metadata.
+    
+    Args:
+        pdf_file (bytes): The PDF file content
+        filename (str): The original filename (optional)
+        model_list: Pre-loaded models
+        extract_images (bool): Whether to extract images
+    
+    Returns:
+        dict: Processing results matching PDFConversionResult schema
+    """
+    try:
+        full_text, metadata, images, processing_time = parse_pdf_and_return_markdown(
+            pdf_file, extract_images, model_list
+        )
+        
+        # Convert metadata to match GeneralMetadata schema
+        general_metadata = {
+            "languages": metadata.get("languages", None),
+            "toc": metadata.get("toc", None), 
+            "pages": metadata.get("pages", None),
+            "custom_metadata": {
+                "processing_time": processing_time,
+                **metadata
+            }
+        }
+        
+        return {
+            "filename": filename or "document.pdf",
+            "markdown": full_text,
+            "metadata": general_metadata,
+            "images": images,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in process_pdf_file: {str(e)}")
+        return {
+            "filename": filename or "document.pdf",
+            "markdown": "",
+            "metadata": {
+                "languages": None,
+                "toc": None,
+                "pages": None,
+                "custom_metadata": {"error": str(e)}
+            },
+            "images": {},
+            "status": "error"
+        }
