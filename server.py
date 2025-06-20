@@ -13,14 +13,14 @@ from marker_api.routes import (
 from marker_api.utils import print_markerapi_text_art
 from contextlib import asynccontextmanager
 import logging
-import gradio as gr
+# import gradio as gr
 from marker_api.model.schema import (
     BatchConversionResponse,
     ConversionResponse,
     HealthResponse,
     ServerType,
 )
-from marker_api.demo import demo_ui
+# from marker_api.demo import demo_ui
 
 # Initialize logging
 configure_logging()
@@ -52,15 +52,22 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-app = gr.mount_gradio_app(app, demo_ui, path="")
+# app = gr.mount_gradio_app(app, demo_ui, path="")
 
 
 @app.get("/health", response_model=HealthResponse)
-def server():
+def health_check():
     """
     Root endpoint to check server status.
     """
     return HealthResponse(message="Welcome to Marker-api", type=ServerType.simple)
+
+@app.get("/")
+def root():
+    """
+    Root endpoint.
+    """
+    return {"message": "Marker API is running", "status": "ok"}
 
 
 # Endpoint to convert a single PDF to markdown
