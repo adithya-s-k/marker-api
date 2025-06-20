@@ -19,10 +19,9 @@ python-multipart = "^0.0.12"
 redis = "^5.1.1"
 requests = "^2.32.3"
 rich = "^13.9.2"
-marker-pdf = "^0.2.17"
+marker-pdf = "1.6.2"
 pynvml = "^11.5.3"
 art = "^6.3"
-gradio = "^5.1.0"
 
 
 

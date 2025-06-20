@@ -1,7 +1,7 @@
 import argparse
 import uvicorn
 import logging
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from celery.exceptions import TimeoutError
 from fastapi.middleware.cors import CORSMiddleware
 from marker_api.celery_worker import celery_app
@@ -24,15 +24,21 @@ from marker_api.model.schema import (
     ConversionResponse,
     HealthResponse,
     ServerType,
+    PDFConversionResult,
 )
 from typing import List
+import os
 
 # Initialize logging
 configure_logging()
 logger = logging.getLogger(__name__)
 
 # Global variable to hold model list
-app = FastAPI()
+app = FastAPI(
+    title="Marker API Distributed Server",
+    description="Distributed API for converting documents (PDF, DOCX, PPTX, XLSX, HTML, EPUB) to Markdown using marker",
+    version="1.6.2"
+)
 
 logger.info("Configuring CORS middleware")
 app.add_middleware(
@@ -58,6 +64,7 @@ def server():
         message="Welcome to Marker-api",
         type=server_type,
         workers=worker_count if server_type == ServerType.distributed else None,
+        supported_formats=["PDF", "DOCX", "PPTX", "XLSX", "HTML", "EPUB"]
     )
 
 
@@ -73,26 +80,61 @@ def is_celery_alive() -> bool:
         return False
 
 
+def validate_file(file: UploadFile) -> str:
+    """Validate uploaded file and return file extension"""
+    # Check file size (limit to 50MB)
+    if file.size and file.size > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 50MB.")
+    
+    # Check file type
+    allowed_extensions = {'.pdf', '.docx', '.pptx', '.xlsx', '.html', '.epub'}
+    file_extension = os.path.splitext(file.filename)[1].lower() if file.filename else ''
+    
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unsupported file type: {file_extension}. Supported types: {', '.join(allowed_extensions)}"
+        )
+    
+    return file_extension
+
+
 def setup_routes(app: FastAPI, celery_live: bool):
     logger.info("Setting up routes")
     if celery_live:
         logger.info("Adding Celery routes")
 
         @app.post("/convert", response_model=ConversionResponse)
-        async def convert_pdf(pdf_file: UploadFile = File(...)):
-            return await celery_convert_pdf_concurrent_await(pdf_file)
+        async def convert_document(
+            file: UploadFile = File(...),
+            extract_images: bool = Form(True)
+        ):
+            """Convert a document (PDF, DOCX, PPTX, XLSX, HTML, EPUB) to markdown"""
+            validate_file(file)
+            return await celery_convert_pdf_concurrent_await(file, extract_images)
 
         @app.post("/celery/convert", response_model=CeleryTaskResponse)
-        async def celery_convert(pdf_file: UploadFile = File(...)):
-            return await celery_convert_pdf(pdf_file)
+        async def celery_convert_document(
+            file: UploadFile = File(...),
+            extract_images: bool = Form(True)
+        ):
+            """Submit a document conversion task to Celery queue"""
+            validate_file(file)
+            return await celery_convert_pdf(file, extract_images)
 
         @app.get("/celery/result/{task_id}", response_model=CeleryResultResponse)
         async def get_celery_result(task_id: str):
             return await celery_result(task_id)
 
         @app.post("/batch_convert", response_model=BatchConversionResponse)
-        async def batch_convert(pdf_files: List[UploadFile] = File(...)):
-            return await celery_batch_convert(pdf_files)
+        async def batch_convert(
+            files: List[UploadFile] = File(...),
+            extract_images: bool = Form(True)
+        ):
+            """Convert multiple documents to markdown"""
+            for file in files:
+                validate_file(file)
+            return await celery_batch_convert(files, extract_images)
 
         @app.get("/batch_convert/result/{task_id}", response_model=BatchResultResponse)
         async def get_batch_result(task_id: str):

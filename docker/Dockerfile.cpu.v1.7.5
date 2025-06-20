@@ -1,0 +1,84 @@
+# Use a base image with Python
+FROM python:3.11-slim
+
+# Install system dependencies required for marker-pdf 1.7.5 and WeasyPrint
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libgomp1 \
+    libglib2.0-dev \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libgdk-pixbuf2.0-dev \
+    libffi-dev \
+    shared-mime-info \
+    libpango-1.0-0 \
+    libharfbuzz0b \
+    libpangoft2-1.0-0 \
+    libfontconfig1 \
+    libcairo2 \
+    libgdk-pixbuf2.0-0 \
+    fonts-liberation \
+    libreoffice \
+    curl \
+    wget \
+    build-essential \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the project files into the Docker image
+COPY . ./
+
+# Install Python dependencies with marker-pdf 1.7.5
+RUN pip install --no-cache-dir \
+    fastapi==0.115.0 \
+    uvicorn==0.31.1 \
+    python-multipart==0.0.12 \
+    requests==2.32.3 \
+    "marker-pdf[full]==1.7.5" \
+    pillow \
+    torch \
+    torchvision \
+    weasyprint \
+    cffi \
+    pycairo \
+    mammoth \
+    pypdf \
+    pdfplumber \
+    streamlit \
+    streamlit-ace
+
+# Install additional dependencies that might be needed
+RUN pip install --no-cache-dir \
+    pydantic \
+    pydantic-settings \
+    python-dotenv \
+    rich \
+    pynvml \
+    psutil \
+    # Dependencies from working v1.6.2 Dockerfile
+    art \
+    billiard \
+    click-didyoumean \
+    click-plugins \
+    click-repl \
+    kombu \
+    python-dateutil \
+    tzdata \
+    vine \
+    starlette \
+    humanize \
+    prometheus-client \
+    pytz \
+    tornado
+
+# Pre-load models to speed up container startup using new API
+RUN python -c 'from marker.models import create_model_dict; create_model_dict()'
+
+EXPOSE 8080
+
+# Command to run the server
+CMD ["python", "server.py", "--host", "0.0.0.0", "--port", "8080"] 

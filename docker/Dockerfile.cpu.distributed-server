@@ -1,21 +1,64 @@
 # Use a base image with Python
 FROM python:3.11-slim
 
-# Install system dependencies required for libGL
+# Install system dependencies required for marker-pdf 1.6.2 and WeasyPrint
 RUN apt-get update && apt-get install -y \
+    # Core system dependencies
     libgl1-mesa-glx \
     libglib2.0-0 \
+    libgomp1 \
+    libgcc-s1 \
+    # WeasyPrint dependencies for DOCX support
+    libgobject-2.0-0 \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 \
+    libffi-dev \
+    shared-mime-info \
+    # LibreOffice for PDF generation (optional)
+    libreoffice \
+    # Additional utilities
+    curl \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /app
 
 # Copy the project files into the Docker image
-COPY ../ ./
+COPY . ./
 
-# Install Python dependencies
-RUN pip install -e .
+# Install Python dependencies with updated marker-pdf version
+RUN pip install --no-cache-dir \
+    fastapi==0.115.0 \
+    uvicorn==0.31.1 \
+    "celery[redis]==5.3.6" \
+    flower==2.0.1 \
+    hf-transfer==0.1.8 \
+    huggingface-hub==0.25.1 \
+    locust==2.31.8 \
+    python-multipart==0.0.12 \
+    redis==5.1.1 \
+    requests==2.32.3 \
+    rich==13.9.2 \
+    pynvml==11.5.3 \
+    art==6.3 \
+    marker-pdf==1.6.2 \
+    "transformers>=4.36.0,<4.45.0" \
+    "gradio>=4.44.0,<5.0.0" \
+    pillow \
+    torch \
+    torchvision \
+    # WeasyPrint and dependencies for DOCX support
+    weasyprint \
+    cffi \
+    pycairo \
+    # Additional dependencies for marker-pdf 1.6.2
+    pypdf \
+    pdfplumber
 
-RUN python -c 'from marker.models import load_all_models; load_all_models()'
+# Pre-load models to speed up container startup using new API
+RUN python -c 'from marker.models import create_model_dict; create_model_dict()'
 
 EXPOSE 8080

@@ -68,8 +68,7 @@ class CeleryResultResponse(BaseModel):
 
 
 class BatchConversionResponse(BaseModel):
-    task_id: str
-    status: str
+    results: List[PDFConversionResult]
 
 
 class BatchResultResponse(BaseModel):
@@ -79,3 +78,14 @@ class BatchResultResponse(BaseModel):
     completed: Optional[int] = None
     total: Optional[int] = None
     progress: Optional[str] = None
+
+
+class TaskResponse(BaseModel):
+    task_id: str
+    status: str
+
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    result: Optional[Union[PDFConversionResult, str, Dict[str, Any]]] = None
