@@ -36,11 +36,11 @@ async def celery_convert_pdf_sync(pdf_file: UploadFile = File(...)):
     return {"status": "Success", "result": result}
 
 
-async def celery_convert_pdf_concurrent_await(pdf_file: UploadFile = File(...)):
+async def celery_convert_pdf_concurrent_await(pdf_file: UploadFile = File(...), extract_images: bool = False):
     contents = await pdf_file.read()
 
     # Start the Celery task
-    task = convert_pdf_to_markdown.delay(pdf_file.filename, contents)
+    task = convert_pdf_to_markdown.delay(pdf_file.filename, contents, extract_images)
 
     # Define an asynchronous function to check task status
     async def check_task_status():
@@ -60,51 +60,6 @@ async def celery_convert_pdf_concurrent_await(pdf_file: UploadFile = File(...)):
             status_code=408,
             content={"status": "Timeout", "message": "Task processing took too long"},
         )
-
-
-# async def celery_batch_convert(pdf_files: List[UploadFile] = File(...)):
-#     batch_data = []
-#     for pdf_file in pdf_files:
-#         contents = await pdf_file.read()
-#         batch_data.append((pdf_file.filename, contents))
-
-#     # Start a single task to process the entire batch
-#     task = process_batch.delay(batch_data)
-
-#     return {
-#         "task_id": str(task.id),
-#         "status": "Processing",
-#     }
-
-
-# async def celery_batch_result(task_id: str):
-#     task = AsyncResult(task_id)
-
-#     if not task.ready():
-#         return JSONResponse(
-#             status_code=202,
-#             content={
-#                 "task_id": str(task_id),
-#                 "status": "Processing",
-#             },
-#         )
-
-#     try:
-#         results = task.get()
-#         return JSONResponse(
-#             status_code=200,
-#             content={"task_id": task_id, "status": "Success", "results": results},
-#         )
-#     except Exception as e:
-#         logger.error(f"Error retrieving results for task {task_id}: {str(e)}")
-#         return JSONResponse(
-#             status_code=500,
-#             content={
-#                 "task_id": task_id,
-#                 "status": "Error",
-#                 "message": "An error occurred while retrieving the results",
-#             },
-#         )
 
 
 async def celery_batch_convert(pdf_files: List[UploadFile] = File(...)):

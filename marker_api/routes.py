@@ -2,16 +2,20 @@ import os
 import time
 import base64
 import tempfile
+import io
+from PIL import Image
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import text_from_rendered
 from marker.logger import configure_logging
 import logging
+from marker_api.utils import process_image_to_base64
 
 # Initialize logging
 configure_logging()
 logger = logging.getLogger(__name__)
 
+SUPPORTED_EXTENSIONS = ['.pdf', '.docx'] # , '.pptx', '.xlsx', '.html', '.epub']
 
 def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract_images: bool, model_dict):
     """
@@ -37,7 +41,7 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             temp_file_path = temp_file.name
         
         try:
-            # Create converter with model dictionary - PdfConverter handles all formats in 1.6.2
+            # Create converter with model dictionary 
             converter = PdfConverter(
                 artifact_dict=model_dict,
             )
@@ -46,7 +50,7 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             rendered = converter(temp_file_path)
             
             # Extract text and metadata from rendered output
-            full_text, images, out_meta = text_from_rendered(rendered)
+            full_text, _, images = text_from_rendered(rendered)
             
             end_time = time.time()
             processing_time = end_time - start_time
@@ -60,20 +64,20 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             if extract_images and images:
                 # Handle different types of images return value
                 if isinstance(images, dict):
-                    for image_name, image_data_bytes in images.items():
+                    for image_name, image_obj in images.items():
                         try:
-                            if isinstance(image_data_bytes, bytes):
-                                img_str = base64.b64encode(image_data_bytes).decode()
-                                image_data[image_name] = img_str
+                            if isinstance(image_obj, Image.Image):
+                                # Handle PIL Image objects
+                                image_data[image_name] = process_image_to_base64(image_obj, image_name)
                             else:
-                                logger.warning(f"Unexpected image data type for {image_name}: {type(image_data_bytes)}")
+                                logger.warning(f"Unexpected image data type for {image_name}: {type(image_obj)}")
                         except Exception as img_error:
                             logger.error(f"Error processing image {image_name}: {str(img_error)}")
                             continue
                 else:
                     logger.info(f"Images returned as {type(images)}: {images}")
             
-            return full_text, out_meta, image_data, processing_time
+            return full_text, image_data, processing_time
             
         finally:
             # Clean up temporary file
@@ -101,40 +105,34 @@ def process_document_file(file_bytes: bytes, filename: str = None, model_dict=No
     try:
         # Determine file type from filename
         file_extension = os.path.splitext(filename)[1].lower() if filename else '.pdf'
-        supported_extensions = ['.pdf', '.docx', '.pptx', '.xlsx', '.html', '.epub']
         
-        if file_extension not in supported_extensions:
-            raise ValueError(f"Unsupported file format: {file_extension}. Supported formats: {supported_extensions}")
+        if file_extension not in SUPPORTED_EXTENSIONS:
+            raise ValueError(f"Unsupported file format: {file_extension}. Supported formats: {SUPPORTED_EXTENSIONS}")
         
         logger.info(f"Processing {file_extension} file: {filename}")
         
-        full_text, metadata, images, processing_time = parse_document_and_return_markdown(
+        full_text, images, processing_time = parse_document_and_return_markdown(
             file_bytes, filename, extract_images, model_dict
         )
         
         # Convert metadata to match GeneralMetadata schema
         general_metadata = {
-            "languages": metadata.get("languages", None),
-            "toc": metadata.get("toc", None), 
-            "pages": metadata.get("pages", None),
             "custom_metadata": {
                 "processing_time": processing_time,
                 "file_type": file_extension,
                 "text_length": len(full_text),
-                "images_count": len(images),
-                **metadata
-            }
+            },
         }
         
         result = {
             "filename": filename or f"document{file_extension}",
             "markdown": full_text,
             "metadata": general_metadata,
-            "images": images,
+            "images": images if extract_images else {},
             "status": "success"
         }
         
-        logger.info(f"Successfully processed {filename}: {len(full_text)} chars, {len(images)} images")
+        logger.info(f"Successfully processed {filename}: {len(full_text)} chars, {len(images) if extract_images else 0} images")
         return result
         
     except Exception as e:
@@ -143,10 +141,7 @@ def process_document_file(file_bytes: bytes, filename: str = None, model_dict=No
             "filename": filename or "document.pdf",
             "markdown": "",
             "metadata": {
-                "languages": None,
-                "toc": None,
-                "pages": None,
-                "custom_metadata": {"error": str(e), "file_type": file_extension if filename else ".pdf"}
+                "custom_metadata": {"error": str(e), "file_type": file_extension if filename else ".pdf"},
             },
             "images": {},
             "status": "error"

@@ -8,22 +8,36 @@ packages = [{include = "marker_api"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-fastapi = "^0.115.0"
-uvicorn = "^0.31.1"
-celery = {extras = ["redis"], version = "=5.3.6"}
-flower = "^2.0.1"
-hf-transfer = "^0.1.8"
-huggingface-hub = "^0.25.1"
-locust = "^2.31.8"
-python-multipart = "^0.0.12"
-redis = "^5.1.1"
-requests = "^2.32.3"
+fastapi = "0.115.0"
+uvicorn = "0.31.1"
+python-multipart = "0.0.12"
+requests = "2.32.3"
+marker-pdf = {version = "1.7.5", extras = ["full"]}
+pillow = "^10.0.0"
+torch = "^2.7.0"
+pydantic = "^2.4.2"
+pydantic-settings = "^2.0.3"
+python-dotenv = "^1.0.0"
 rich = "^13.9.2"
-marker-pdf = "1.6.2"
 pynvml = "^11.5.3"
 art = "^6.3"
+starlette = "^0.37.2,<0.39.0"
+# DOCX conversion dependencies
+weasyprint = "^63.0"
+cffi = "^1.15.0"
+pycairo = "^1.20.0"
+mammoth = "^1.9.0"
+pypdf = "^4.0.0"
+pdfplumber = "^0.11.0"
+python-docx = "^1.1.0"
 
+# Optional distributed server dependencies
+celery = {extras = ["redis"], version = "^5.3.6", optional = true}
+flower = {version = "^2.0.1", optional = true}
+redis = {version = "^5.1.1", optional = true}
 
+[tool.poetry.extras]
+distributed = ["celery", "flower", "redis"]
 
 [build-system]
 requires = ["poetry-core"]

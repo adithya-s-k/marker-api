@@ -1,0 +1,51 @@
+# Use a base image with Python
+FROM python:3.11-slim
+
+# Install system dependencies required for libGL and DOCX conversion
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libglib2.0-dev \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libgdk-pixbuf2.0-dev \
+    libffi-dev \
+    shared-mime-info \
+    libpango-1.0-0 \
+    libharfbuzz0b \
+    libpangoft2-1.0-0 \
+    libfontconfig1 \
+    libcairo2 \
+    libgdk-pixbuf2.0-0 \
+    fonts-liberation \
+    build-essential \
+    pkg-config \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN useradd -m -u 1000 marker
+
+# Create font directory for marker user
+RUN mkdir -p /home/marker/.local/share/fonts && \
+    chown -R marker:marker /home/marker/.local
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the entire project
+COPY . .
+
+# Install Python dependencies with distributed extras
+RUN pip install -e ".[distributed]"
+
+USER marker
+
+# Set font path for marker user
+ENV FONT_PATH=/home/marker/.local/share/fonts/font.ttf
+
+# Pre-load models and save them to a shared location
+RUN python -c 'from marker.models import create_model_dict; create_model_dict()'
+
+# The models will be cached in /home/marker/.cache/huggingface
+# This directory will be used as a volume in the distributed setup 

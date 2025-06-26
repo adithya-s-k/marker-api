@@ -1,9 +1,12 @@
 import os
 import asyncio
 import argparse
+import base64
+import io
+from PIL import Image
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Dict, Any
 import concurrent.futures
 from marker.logger import configure_logging  # Import logging configuration
 from marker.models import create_model_dict  # Import function to create model dict
@@ -30,6 +33,32 @@ logger = logging.getLogger(__name__)
 # Global variable to hold model dict
 model_dict = None
 
+
+# def clean_pil_images_from_dict(obj):
+#     """
+#     Recursively clean PIL Image objects from a dictionary/list structure,
+#     converting them to base64 strings.
+#     """
+#     if isinstance(obj, dict):
+#         cleaned = {}
+#         for key, value in obj.items():
+#             cleaned[key] = clean_pil_images_from_dict(value)
+#         return cleaned
+#     elif isinstance(obj, list):
+#         return [clean_pil_images_from_dict(item) for item in obj]
+#     elif isinstance(obj, Image.Image):
+#         # Convert PIL Image to base64 string
+#         try:
+#             img_byte_arr = io.BytesIO()
+#             obj.save(img_byte_arr, format="PNG")
+#             img_byte_arr = img_byte_arr.getvalue()
+#             return base64.b64encode(img_byte_arr).decode()
+#         except Exception as e:
+
+#             logger.error(f"Error converting PIL Image to base64: {str(e)}")
+#             return ""
+#     else:
+#         return obj
 
 # Event that runs on startup to load all models
 @asynccontextmanager
@@ -76,7 +105,7 @@ async def root():
 @app.post("/convert", response_model=PDFConversionResult)
 async def convert_document_to_markdown(
     file: UploadFile = File(...),
-    extract_images: bool = Form(True)
+    extract_images: bool = Form(False)
 ):
     """
     Endpoint to convert a document (PDF, DOCX, PPTX, XLSX, HTML, EPUB) to markdown.
@@ -110,7 +139,11 @@ async def convert_document_to_markdown(
             model_dict=model_dict, 
             extract_images=extract_images
         )
-        return PDFConversionResult(**response)
+        # Clean any PIL Image objects from the response
+        cleaned_response = response
+        # cleaned_response = clean_pil_images_from_dict(response)
+
+        return PDFConversionResult(**cleaned_response)
     except Exception as e:
         logger.error(f"Error processing document: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
@@ -120,7 +153,7 @@ async def convert_document_to_markdown(
 @app.post("/batch_convert", response_model=BatchConversionResponse)
 async def convert_documents_to_markdown(
     files: List[UploadFile] = File(...),
-    extract_images: bool = Form(True)
+    extract_images: bool = Form(False)
 ):
     """
     Endpoint to convert multiple documents to markdown.
@@ -150,29 +183,6 @@ async def convert_documents_to_markdown(
 
     responses = await process_files(files)
     return BatchConversionResponse(results=responses)
-
-
-@app.post("/extract_structured")
-async def extract_structured_data(
-    file: UploadFile = File(...),
-    schema: str = Form(None)
-):
-    """
-    Extract structured data from documents using Pydantic schemas (v1.7.5 feature)
-    """
-    try:
-        # For now, return a placeholder response indicating the feature is available
-        # In a full implementation, this would use marker-pdf 1.7.5's structured extraction
-        return {
-            "message": "Structured extraction endpoint available in v1.7.5",
-            "filename": file.filename,
-            "feature": "structured_extraction",
-            "status": "placeholder_implementation",
-            "note": "This would extract structured data using Pydantic schemas in the full implementation"
-        }
-    except Exception as e:
-        logger.error(f"Structured extraction failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Structured extraction failed: {str(e)}")
 
 
 # Main function to run the server

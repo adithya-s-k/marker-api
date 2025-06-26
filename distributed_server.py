@@ -14,8 +14,8 @@ from marker_api.celery_routes import (
     celery_batch_convert,
     celery_batch_result,
 )
-import gradio as gr
-from marker_api.demo import demo_ui
+# import gradio as gr
+# from marker_api.demo import demo_ui
 from marker_api.model.schema import (
     BatchConversionResponse,
     BatchResultResponse,
@@ -70,14 +70,23 @@ def server():
 
 def is_celery_alive() -> bool:
     logger.debug("Checking if Celery is alive")
-    try:
-        result = celery_app.send_task("celery.ping")
-        result.get(timeout=3)
-        logger.info("Celery is alive")
-        return True
-    except (TimeoutError, Exception) as e:
-        logger.warning(f"Celery is not responding: {str(e)}")
-        return False
+    max_retries = 3
+    timeout = 10  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            result = celery_app.send_task("celery.ping")
+            result.get(timeout=timeout)
+            logger.info("Celery is alive")
+            return True
+        except (TimeoutError, Exception) as e:
+            logger.warning(f"Celery connection attempt {attempt + 1}/{max_retries} failed: {str(e)}")
+            if attempt < max_retries - 1:
+                import time
+                time.sleep(2)  # Wait 2 seconds before retrying
+    
+    logger.error("All Celery connection attempts failed")
+    return False
 
 
 def validate_file(file: UploadFile) -> str:
@@ -143,7 +152,7 @@ def setup_routes(app: FastAPI, celery_live: bool):
         logger.info("Adding real-time conversion route")
     else:
         logger.warning("Celery routes not added as Celery is not alive")
-    app = gr.mount_gradio_app(app, demo_ui, path="")
+    # app = gr.mount_gradio_app(app, demo_ui, path="")
 
 
 def parse_args():
