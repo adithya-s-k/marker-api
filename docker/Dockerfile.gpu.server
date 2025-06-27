@@ -32,32 +32,20 @@ RUN apt-get update && \
     git \
     python3 \
     python3-pip \
-    python3-dev \
-    # Core system dependencies
     libgl1 \
     libglib2.0-0 \
-    libgomp1 \
-    libgcc-s1 \
-    # WeasyPrint dependencies for DOCX support
-    libgobject-2.0-0 \
-    libcairo2 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libgdk-pixbuf2.0-0 \
-    libffi-dev \
-    shared-mime-info \
-    # LibreOffice for PDF generation (optional)
-    libreoffice \
-    # Additional utilities
+    curl \
     gnupg2 \
     ca-certificates \
     apt-transport-https \
     software-properties-common \
+    libreoffice \
     ffmpeg \
     git-lfs \
     xvfb \
-    python3-packaging \
     && ln -s /usr/bin/python3 /usr/bin/python \
+    && apt-get update \
+    && apt install python3-packaging \    
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
@@ -65,36 +53,12 @@ RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https:/
 WORKDIR /app
 
 # Copy the project files into the Docker image
-COPY . ./
+COPY ../ ./
 
-# Install Python dependencies with updated marker-pdf version
-RUN pip3 install --no-cache-dir \
-    fastapi==0.115.0 \
-    uvicorn==0.31.1 \
-    "celery[redis]==5.3.6" \
-    flower==2.0.1 \
-    hf-transfer==0.1.8 \
-    huggingface-hub==0.25.1 \
-    locust==2.31.8 \
-    python-multipart==0.0.12 \
-    redis==5.1.1 \
-    requests==2.32.3 \
-    rich==13.9.2 \
-    pynvml==11.5.3 \
-    art==6.3 \
-    marker-pdf==1.6.2 \
-    "transformers>=4.36.0,<4.45.0" \
-    "gradio>=4.44.0,<5.0.0" \
-    pillow \
-    # WeasyPrint and dependencies for DOCX support
-    weasyprint \
-    cffi \
-    pycairo \
-    # Additional dependencies for marker-pdf 1.6.2
-    pypdf \
-    pdfplumber
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -e .
 
-# Pre-load models to speed up container startup using new API
+# RUN python -c 'from marker.models import load_all_models; load_all_models()'
 RUN python -c 'from marker.models import create_model_dict; create_model_dict()'
 
 EXPOSE 8080

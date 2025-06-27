@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 load_dotenv(".env")
 
 # Get Redis host from environment or use default
-redis_host = os.environ.get("REDIS_HOST", "localhost")
-redis_url = f"redis://{redis_host}:6379/0"
+redis_url = os.environ.get("REDIS_HOST", "redis://localhost:6379/0")
 logger.info(f"Connecting to Redis at: {redis_url}")
 
 celery_app = Celery(

@@ -1,9 +1,0 @@
-# Use the base image that has models pre-loaded
-FROM marker-api-base:latest
-
-# Copy the rest of the project files
-COPY . .
-
-# No need to install dependencies or pre-load models as they're in the base image
-# Just expose the port
-EXPOSE 8080

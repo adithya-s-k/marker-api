@@ -2,72 +2,65 @@ version: "3.8"
 
 services:
   base:
-    image: marker-api-base:latest
+    image: marker-api-cpu-base:latest
     build:
       context: .
-      dockerfile: docker/Dockerfile.base
+      dockerfile: docker/Dockerfile.cpu.base
 
   celery_worker:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.original.cpu.distributed-server
+      context: .  # Keep the build context as the root directory
+      dockerfile: docker/Dockerfile.cpu.distributed-server
     image: marker-api-distributed-cpu
     command: celery -A marker_api.celery_worker.celery_app worker --pool=solo -n worker@%h --loglevel=info
     volumes:
       - .:/app
       - model_cache:/home/marker/.cache/huggingface
     environment:
-      - REDIS_HOST=redis
+      - REDIS_HOST=${REDIS_HOST}
+    links:
+      - redis
     depends_on:
       - redis
       - base
 
-  api:
-    container_name: marker-api-distributed
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.original.cpu.distributed-server
+  app:
+    container_name: marker-api-cpu-distributed
+    image: marker-api-distributed-cpu
     command: python distributed_server.py --host 0.0.0.0 --port 8080
+    environment:
+      - ENV=production
     ports:
       - "8086:8080"
     volumes:
       - .:/app
       - model_cache:/home/marker/.cache/huggingface
-    environment:
-      - REDIS_HOST=redis
     depends_on:
       - redis
       - base
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   redis:
-    image: redis:7-alpine
+    container_name: redis
+    image: redis:7.2.4-alpine
     ports:
       - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
+
 
   flower:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.original.cpu.distributed-server
+    container_name: flower_cpu
+    image: marker-api-distributed-cpu
     command: celery -A marker_api.celery_worker.celery_app flower --port=5555
     ports:
-      - "5555:5555"
+      - 5556:5555
     volumes:
       - .:/app
       - model_cache:/home/marker/.cache/huggingface
     environment:
-      - REDIS_HOST=redis
+      - REDIS_HOST=${REDIS_HOST}
     depends_on:
+      - app
       - redis
+      - celery_worker
       - base
 
 volumes:

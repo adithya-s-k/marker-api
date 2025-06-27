@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Marker API Distributed Server",
     description="Distributed API for converting documents (PDF, DOCX, PPTX, XLSX, HTML, EPUB) to Markdown using marker",
-    version="1.6.2"
+    version="1.7.5"
 )
 
 logger.info("Configuring CORS middleware")
