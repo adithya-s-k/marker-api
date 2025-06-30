@@ -2,8 +2,6 @@ ARG CUDA_VERSION="11.8.0"
 ARG CUDNN_VERSION="8"
 ARG UBUNTU_VERSION="22.04"
 ARG MAX_JOBS=4
-# Use NVIDIA CUDA base image
-FROM nvidia/cuda:12.3.1-cudnn8-devel-ubuntu22.04
 
 FROM nvidia/cuda:$CUDA_VERSION-cudnn$CUDNN_VERSION-devel-ubuntu$UBUNTU_VERSION
 

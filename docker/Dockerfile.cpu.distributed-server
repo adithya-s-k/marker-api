@@ -1,5 +1,5 @@
 # Use the base image that has models pre-loaded
-FROM marker-api-base:latest
+FROM marker-api-cpu-base:latest
 
 # Copy the rest of the project files
 COPY . .
