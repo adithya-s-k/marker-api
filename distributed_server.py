@@ -116,20 +116,22 @@ def setup_routes(app: FastAPI, celery_live: bool):
         @app.post("/convert", response_model=ConversionResponse)
         async def convert_document(
             file: UploadFile = File(...),
-            extract_images: bool = Form(True)
+            extract_images: bool = Form(True),
+            paginate: bool = Form(True)
         ):
             """Convert a document (PDF, DOCX, PPTX, XLSX, HTML, EPUB) to markdown"""
             validate_file(file)
-            return await celery_convert_pdf_concurrent_await(file, extract_images)
+            return await celery_convert_pdf_concurrent_await(file, extract_images, paginate)
 
         @app.post("/celery/convert", response_model=CeleryTaskResponse)
         async def celery_convert_document(
             file: UploadFile = File(...),
-            extract_images: bool = Form(True)
+            extract_images: bool = Form(False),
+            paginate: bool = Form(True)
         ):
             """Submit a document conversion task to Celery queue"""
             validate_file(file)
-            return await celery_convert_pdf(file, extract_images)
+            return await celery_convert_pdf(file, extract_images, paginate)
 
         @app.get("/celery/result/{task_id}", response_model=CeleryResultResponse)
         async def get_celery_result(task_id: str):
@@ -138,12 +140,13 @@ def setup_routes(app: FastAPI, celery_live: bool):
         @app.post("/batch_convert", response_model=BatchConversionResponse)
         async def batch_convert(
             files: List[UploadFile] = File(...),
-            extract_images: bool = Form(True)
+            extract_images: bool = Form(False),
+            paginate: bool = Form(True)
         ):
             """Convert multiple documents to markdown"""
             for file in files:
                 validate_file(file)
-            return await celery_batch_convert(files, extract_images)
+            return await celery_batch_convert(files, extract_images, paginate)
 
         @app.get("/batch_convert/result/{task_id}", response_model=BatchResultResponse)
         async def get_batch_result(task_id: str):

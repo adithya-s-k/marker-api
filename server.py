@@ -105,10 +105,16 @@ async def root():
 @app.post("/convert", response_model=PDFConversionResult)
 async def convert_document_to_markdown(
     file: UploadFile = File(...),
-    extract_images: bool = Form(False)
+    extract_images: bool = Form(False),
+    paginate: bool = Form(True)
 ):
     """
     Endpoint to convert a document (PDF, DOCX, PPTX, XLSX, HTML, EPUB) to markdown.
+    
+    Parameters:
+    - file: The document file to convert
+    - extract_images: Whether to extract and include images in the output
+    - paginate: Whether to split the output into pages based on the original document structure
     """
     global model_dict
     
@@ -137,7 +143,8 @@ async def convert_document_to_markdown(
             file_content, 
             filename=file.filename, 
             model_dict=model_dict, 
-            extract_images=extract_images
+            extract_images=extract_images,
+            paginate=paginate
         )
         # Clean any PIL Image objects from the response
         cleaned_response = response

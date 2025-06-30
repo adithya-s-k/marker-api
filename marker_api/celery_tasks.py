@@ -32,180 +32,88 @@ def initialize_models(**kwargs):
 
 
 class DocumentConversionTask(Task):
-    abstract = True
-    
-    def __init__(self):
-        super().__init__()
-    
-    def __call__(self, *args, **kwargs):
-        return self.run(*args, **kwargs)
+    _model_dict = None
 
-
-def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract_images: bool = False):
-    """
-    Function to parse a document (PDF, DOCX, etc.) and extract text and images.
-    
-    Args:
-    file_bytes (bytes): The content of the document file.
-    filename (str): Original filename to determine file type
-    extract_images (bool): Whether to extract images or not.
-    
-    Returns:
-    tuple: A tuple containing the full text, metadata, and image data.
-    """
-    try:
-        start_time = time.time()
-        
-        # Create a temporary file with the correct extension
-        file_extension = os.path.splitext(filename)[1].lower() if filename else '.pdf'
-        
-        with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
-            temp_file.write(file_bytes)
-            temp_file_path = temp_file.name
-        
-        try:
-            # Convert document using the global converter
-            rendered = converter(temp_file_path)
-            
-            # Extract text and metadata from rendered output
-            full_text, _, images = text_from_rendered(rendered)
-            
-            end_time = time.time()
-            processing_time = end_time - start_time
-            
-            logger.info(f"Document processing completed in {processing_time:.2f} seconds")
-            logger.info(f"Extracted text length: {len(full_text)} characters")
-            logger.info(f"Images extracted: {len(images) if images else 0}")
-            
-            # Process images if extraction is enabled
-            image_data = {}
-            if extract_images and images:
-                # Handle different types of images return value
-                if isinstance(images, dict):
-                    for image_name, image_obj in images.items():
-                        try:
-                            if isinstance(image_obj, Image.Image):
-                                # Handle PIL Image objects
-                                image_data[image_name] = process_image_to_base64(image_obj, image_name)
-                            else:
-                                logger.warning(f"Unexpected image data type for {image_name}: {type(image_obj)}")
-                        except Exception as img_error:
-                            logger.error(f"Error processing image {image_name}: {str(img_error)}")
-                            continue
-                else:
-                    logger.info(f"Images returned as {type(images)}: {images}")
-            
-            return full_text, image_data, processing_time
-            
-        finally:
-            # Clean up temporary file
-            if os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
-        
-    except Exception as e:
-        logger.error(f"Error processing document: {str(e)}")
-        raise
+    @property
+    def model_dict(self):
+        if self._model_dict is None:
+            self._model_dict = create_model_dict()
+        return self._model_dict
 
 
 @celery_app.task(
     ignore_result=False, bind=True, base=DocumentConversionTask, name="convert_document"
 )
-def convert_document_to_markdown(self, filename, file_content, extract_images: bool = True):
+def convert_pdf_to_markdown(self, filename, file_content, extract_images: bool = True, paginate: bool = True):
     """
-    Process a document file (PDF, DOCX, etc.) and return markdown text with metadata.
+    Convert a PDF file to markdown.
     
     Args:
         filename (str): The original filename
-        file_content (bytes): The document file content
+        file_content (bytes): The PDF file content
         extract_images (bool): Whether to extract images
+        paginate (bool): Whether to split output into pages
     
     Returns:
         dict: Processing results matching PDFConversionResult schema
     """
-    try:
-        # Determine file type from filename
-        file_extension = os.path.splitext(filename)[1].lower() if filename else '.pdf'
-        supported_extensions = ['.pdf', '.docx', '.pptx', '.xlsx', '.html', '.epub']
-        
-        if file_extension not in supported_extensions:
-            raise ValueError(f"Unsupported file format: {file_extension}. Supported formats: {supported_extensions}")
-        
-        logger.info(f"Processing {file_extension} file: {filename}")
-        
-        full_text, images, processing_time = parse_document_and_return_markdown(
-            file_content, filename, extract_images
-        )
-        
-        # Convert metadata to match GeneralMetadata schema
-        general_metadata = {
-            "custom_metadata": {
-                "processing_time": processing_time,
-                "file_type": file_extension,
-                "text_length": len(full_text),
-            },
-        }
-        
-        result = {
-            "filename": filename or f"document{file_extension}",
-            "markdown": full_text,
-            "metadata": general_metadata,
-            "images": images if extract_images else {},
-            "status": "success"
-        }
-        
-        logger.info(f"Successfully processed {filename}: {len(full_text)} chars, {len(images) if extract_images else 0} images")
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error in convert_document_to_markdown: {str(e)}")
-        return {
-            "filename": filename,
-            "markdown": "",
-            "metadata": {
-                "custom_metadata": {"error": str(e), "file_type": file_extension if filename else ".pdf"},
-            },
-            "images": {},
-            "status": "error"
-        }
+    return process_document_file(
+        file_content, 
+        filename=filename, 
+        model_dict=self.model_dict, 
+        extract_images=extract_images,
+        paginate=paginate
+    )
 
 
 @celery_app.task(
     ignore_result=False, bind=True, base=DocumentConversionTask, name="process_batch"
 )
-def process_batch(self, batch_data, extract_images: bool = False):
+def process_batch(self, batch_data):
     """
-    Process a batch of documents.
+    Process multiple documents in batch.
     
     Args:
-        batch_data: List of tuples containing (filename, file_content)
-        extract_images (bool): Whether to extract images from documents
-        
+        batch_data (list): List of tuples (filename, content, extract_images, paginate)
+    
     Returns:
-        list: List of processing results for each document
+        list: List of processing results
     """
     results = []
-    total = len(batch_data)
+    total_files = len(batch_data)
     
-    for i, (filename, file_content) in enumerate(batch_data, start=1):
+    for i, (filename, content, extract_images, paginate) in enumerate(batch_data, 1):
         try:
-            result = convert_document_to_markdown(filename, file_content, extract_images)
+            # Update progress
+            self.update_state(
+                state="PROGRESS",
+                meta={
+                    "current": i,
+                    "total": total_files,
+                    "status": f"Processing {filename}"
+                }
+            )
+            
+            # Process the document
+            result = process_document_file(
+                content,
+                filename=filename,
+                model_dict=self.model_dict,
+                extract_images=extract_images,
+                paginate=paginate
+            )
             results.append(result)
+            
         except Exception as e:
             logger.error(f"Error processing {filename}: {str(e)}")
             results.append({
                 "filename": filename,
-                "markdown": "",
+                "markdown": "" if not paginate else [],
                 "metadata": {
                     "custom_metadata": {"error": str(e)},
                 },
                 "images": {},
                 "status": "error"
             })
-
-        # Update progress
-        self.update_state(state="PROGRESS", meta={"current": i, "total": total})
-
-    return results
-
-# Keep the old function name for backward compatibility
-convert_pdf_to_markdown = convert_document_to_markdown 
+    
+    return results 

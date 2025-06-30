@@ -45,10 +45,10 @@ class GeneralMetadata(BaseModel):
 
 class PDFConversionResult(BaseModel):
     filename: str
-    markdown: str
+    markdown: Union[str, List[str]]  # Can be either a single string or a list of strings for paginated output
     metadata: GeneralMetadata
-    images: Dict[str, str]
-    status: str
+    images: Dict[str, str] = Field(default_factory=dict)
+    status: str = "success"
 
 
 class ConversionResponse(BaseModel):

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = ['.pdf', '.docx'] # , '.pptx', '.xlsx', '.html', '.epub']
 
-def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract_images: bool, model_dict):
+def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract_images: bool, model_dict, paginate: bool = True):
     """
     Function to parse a document (PDF, DOCX, etc.) and extract text and images.
 
@@ -26,6 +26,7 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
     filename (str): Original filename to determine file type
     extract_images (bool): Whether to extract images or not.
     model_dict: The model dictionary from create_model_dict()
+    paginate (bool): Whether to paginate the output based on original document pages.
 
     Returns:
     tuple: A tuple containing the full text, metadata, and image data.
@@ -41,9 +42,10 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             temp_file_path = temp_file.name
         
         try:
-            # Create converter with model dictionary 
+            # Create converter with model dictionary and pagination config
             converter = PdfConverter(
                 artifact_dict=model_dict,
+                config={"paginate_output": paginate} if paginate else None
             )
             
             # Convert document using the new API - pass the file path directly
@@ -52,11 +54,27 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             # Extract text and metadata from rendered output
             full_text, _, images = text_from_rendered(rendered)
             
+            # Split text into pages if pagination is enabled
+            if paginate and isinstance(full_text, str):
+                import re
+                # Split on any numbered page marker pattern ({n}------...)
+                pages = re.split(r'\{(\d+)\}[-]+', full_text)
+                # The split will create: ['before first marker', '0', 'page1 content', '1', 'page2 content', ...]
+                # We want only the content parts (every other item starting from index 2)
+                pages = [page.strip() for page in pages[2::2]]
+                # Remove empty pages
+                pages = [page for page in pages if page]
+                full_text = pages
+            
             end_time = time.time()
             processing_time = end_time - start_time
             
             logger.info(f"Document processing completed in {processing_time:.2f} seconds")
-            logger.info(f"Extracted text length: {len(full_text)} characters")
+            if isinstance(full_text, list):
+                logger.info(f"Extracted {len(full_text)} pages")
+                logger.info(f"Total text length: {sum(len(page) for page in full_text)} characters")
+            else:
+                logger.info(f"Extracted text length: {len(full_text)} characters")
             logger.info(f"Images extracted: {len(images) if images else 0}")
             
             # Process images if extraction is enabled
@@ -89,7 +107,7 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
         raise
 
 
-def process_document_file(file_bytes: bytes, filename: str = None, model_dict=None, extract_images: bool = True):
+def process_document_file(file_bytes: bytes, filename: str = None, model_dict=None, extract_images: bool = True, paginate: bool = True):
     """
     Process a document file (PDF, DOCX, etc.) and return markdown text with metadata.
     
@@ -98,6 +116,7 @@ def process_document_file(file_bytes: bytes, filename: str = None, model_dict=No
         filename (str): The original filename (optional)
         model_dict: Pre-loaded model dictionary
         extract_images (bool): Whether to extract images
+        paginate (bool): Whether to paginate the output based on original document pages
     
     Returns:
         dict: Processing results matching PDFConversionResult schema
@@ -112,7 +131,7 @@ def process_document_file(file_bytes: bytes, filename: str = None, model_dict=No
         logger.info(f"Processing {file_extension} file: {filename}")
         
         full_text, images, processing_time = parse_document_and_return_markdown(
-            file_bytes, filename, extract_images, model_dict
+            file_bytes, filename, extract_images, model_dict, paginate
         )
         
         # Convert metadata to match GeneralMetadata schema
@@ -120,13 +139,14 @@ def process_document_file(file_bytes: bytes, filename: str = None, model_dict=No
             "custom_metadata": {
                 "processing_time": processing_time,
                 "file_type": file_extension,
-                "text_length": len(full_text),
+                "text_length": len(full_text) if isinstance(full_text, str) else sum(len(page) for page in full_text),
+                "pages": len(full_text) if isinstance(full_text, list) else None
             },
         }
         
         result = {
             "filename": filename or f"document{file_extension}",
-            "markdown": full_text,
+            "markdown": full_text,  # This will be either a string or a list of strings depending on pagination
             "metadata": general_metadata,
             "images": images if extract_images else {},
             "status": "success"
@@ -139,7 +159,7 @@ def process_document_file(file_bytes: bytes, filename: str = None, model_dict=No
         logger.error(f"Error in process_document_file: {str(e)}")
         return {
             "filename": filename or "document.pdf",
-            "markdown": "",
+            "markdown": "" if not paginate else [],
             "metadata": {
                 "custom_metadata": {"error": str(e), "file_type": file_extension if filename else ".pdf"},
             },
