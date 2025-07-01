@@ -55,16 +55,16 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             full_text, _, images = text_from_rendered(rendered)
             
             # Split text into pages if pagination is enabled
-            if paginate and isinstance(full_text, str):
-                import re
-                # Split on any numbered page marker pattern ({n}------...)
-                pages = re.split(r'\{(\d+)\}[-]+', full_text)
-                # The split will create: ['before first marker', '0', 'page1 content', '1', 'page2 content', ...]
-                # We want only the content parts (every other item starting from index 2)
-                pages = [page.strip() for page in pages[2::2]]
-                # Remove empty pages
-                pages = [page for page in pages if page]
-                full_text = pages
+            # if paginate and isinstance(full_text, str):
+            #     import re
+            #     # Split on any numbered page marker pattern ({n}------...)
+            #     pages = re.split(r'\{(\d+)\}[-]+', full_text)
+            #     # The split will create: ['before first marker', '0', 'page1 content', '1', 'page2 content', ...]
+            #     # We want only the content parts (every other item starting from index 2)
+            #     pages = [page.strip() for page in pages[2::2]]
+            #     # Remove empty pages
+            #     pages = [page for page in pages if page]
+            #     full_text = pages
             
             end_time = time.time()
             processing_time = end_time - start_time
