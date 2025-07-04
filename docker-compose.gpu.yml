@@ -9,15 +9,20 @@ services:
     image: marker-api-gpu-image
     volumes:
       - .:/app
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     depends_on:
       - redis
     environment:
       - REDIS_HOST=${REDIS_HOST}
+    restart: unless-stopped
     deploy:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]  # Request GPU support
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]  # Request GPU support
 
   app:
     container_name: marker-api-gpu
@@ -29,14 +34,19 @@ services:
       - "8080:8080"
     volumes:
       - .:/app
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     depends_on:
       - redis
       - celery_worker
+    restart: unless-stopped
     deploy:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]  # Request GPU support
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]  # Request GPU support
 
   redis:
     container_name: redis
@@ -52,6 +62,8 @@ services:
       - 5556:5555
     volumes:
       - .:/app
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     environment:
       - REDIS_HOST=${REDIS_HOST}
     depends_on:
@@ -62,4 +74,6 @@ services:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]  # Request GPU support
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]  # Request GPU support
