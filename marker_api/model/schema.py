@@ -41,6 +41,7 @@ class GeneralMetadata(BaseModel):
     toc: Optional[List[Dict[str, Any]]] = None
     pages: Optional[int] = None
     custom_metadata: Dict[str, Any] = Field(default_factory=dict)
+    converted_pdf_base64: Optional[str] = None  # Base64 encoded PDF content
 
 
 class PDFConversionResult(BaseModel):

@@ -3,6 +3,7 @@ import time
 import base64
 import tempfile
 import io
+import subprocess
 from PIL import Image
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
@@ -10,12 +11,61 @@ from marker.output import text_from_rendered
 from marker.logger import configure_logging
 import logging
 from marker_api.utils import process_image_to_base64
+from marker.config.parser import ConfigParser
 
 # Initialize logging
 configure_logging()
 logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = ['.pdf', '.docx'] # , '.pptx', '.xlsx', '.html', '.epub']
+
+def convert_docx_to_pdf(docx_path: str, pdf_path: str) -> None:
+    """
+    Convert DOCX to PDF using LibreOffice.
+    
+    Args:
+        docx_path (str): Path to input DOCX file
+        pdf_path (str): Path where to save the PDF file
+    """
+    try:
+        # Convert to absolute paths
+        docx_path = os.path.abspath(docx_path)
+        pdf_path = os.path.abspath(pdf_path)
+        
+        # Create output directory if it doesn't exist
+        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+        
+        # Use LibreOffice to convert DOCX to PDF
+        # --headless: run without UI
+        # --convert-to pdf: convert to PDF format
+        # --outdir: specify output directory
+        cmd = [
+            'soffice',
+            '--headless',
+            '--convert-to', 'pdf',  # Use the Writer PDF export filter
+            '--outdir', os.path.dirname(pdf_path),
+            docx_path
+        ]
+        
+        logger.info(f"Converting DOCX to PDF: {docx_path} -> {pdf_path}")
+        process = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if process.returncode != 0:
+            raise Exception(f"LibreOffice conversion failed: {process.stderr}")
+            
+        # LibreOffice creates the PDF with the same name as input but .pdf extension
+        # Move it to the desired location if different
+        generated_pdf = os.path.join(
+            os.path.dirname(pdf_path),
+            os.path.splitext(os.path.basename(docx_path))[0] + '.pdf'
+        )
+        if generated_pdf != pdf_path and os.path.exists(generated_pdf):
+            os.rename(generated_pdf, pdf_path)
+            
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Failed to convert DOCX to PDF: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Error during DOCX to PDF conversion: {str(e)}")
 
 def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract_images: bool, model_dict, paginate: bool = True):
     """
@@ -29,7 +79,7 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
     paginate (bool): Whether to paginate the output based on original document pages.
 
     Returns:
-    tuple: A tuple containing the full text, metadata, and image data.
+    tuple: A tuple containing the full text, metadata, image data, and converted PDF content.
     """
     try:
         start_time = time.time()
@@ -42,10 +92,31 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             temp_file_path = temp_file.name
         
         try:
+            # If the file is a DOCX, convert it to PDF first
+            if file_extension == '.docx':
+                pdf_temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+                pdf_temp_path = pdf_temp_file.name
+                pdf_temp_file.close()
+                
+                try:
+                    convert_docx_to_pdf(temp_file_path, pdf_temp_path)
+                    temp_file_path = pdf_temp_path  # Use the converted PDF
+                except Exception as e:
+                    raise Exception(f"Failed to convert DOCX to PDF: {str(e)}")
+            
             # Create converter with model dictionary and pagination config
+            config = {
+                "paginate_output": paginate,  # Add page breaks
+                # "format_lines": True,     # Better formatting
+                # "force_ocr": False,       # Don't force OCR for DOCX
+                # "strip_existing_ocr": False,  # Keep existing text
+                # "disable_image_extraction": True,  # Keep images   
+            }
+            config_parser = ConfigParser(config)
+            # Initialize the converter with config
             converter = PdfConverter(
                 artifact_dict=model_dict,
-                config={"paginate_output": paginate} if paginate else None
+                config=config_parser.generate_config_dict()
             )
             
             # Convert document using the new API - pass the file path directly
@@ -68,28 +139,29 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             # Process images if extraction is enabled
             image_data = {}
             if extract_images and images:
-                # Handle different types of images return value
-                if isinstance(images, dict):
-                    for image_name, image_obj in images.items():
-                        try:
-                            if isinstance(image_obj, Image.Image):
-                                # Handle PIL Image objects
-                                image_data[image_name] = process_image_to_base64(image_obj, image_name)
-                            else:
-                                logger.warning(f"Unexpected image data type for {image_name}: {type(image_obj)}")
-                        except Exception as img_error:
-                            logger.error(f"Error processing image {image_name}: {str(img_error)}")
-                            continue
-                else:
-                    logger.info(f"Images returned as {type(images)}: {images}")
+                for idx, img in enumerate(images):
+                    image_data[f"image_{idx}"] = process_image_to_base64(img)
             
-            return full_text, image_data, processing_time
+            # Get the converted PDF content
+            converted_pdf_content = None
+            if hasattr(rendered, 'pdf_bytes') and rendered.pdf_bytes:
+                converted_pdf_content = base64.b64encode(rendered.pdf_bytes).decode('utf-8')
+            elif os.path.exists(temp_file_path):
+                # If pdf_bytes not available, read from the temporary file
+                with open(temp_file_path, 'rb') as f:
+                    converted_pdf_content = base64.b64encode(f.read()).decode('utf-8')
+            
+            return full_text, image_data, processing_time, converted_pdf_content
             
         finally:
-            # Clean up temporary file
-            if os.path.exists(temp_file_path):
+            # Clean up the temporary files
+            try:
                 os.unlink(temp_file_path)
-        
+                if file_extension == '.docx' and 'pdf_temp_path' in locals():
+                    os.unlink(pdf_temp_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete temporary file(s): {e}")
+                
     except Exception as e:
         logger.error(f"Error processing document: {str(e)}")
         raise
@@ -118,7 +190,7 @@ def process_document_file(file_bytes: bytes, filename: str = None, model_dict=No
         
         logger.info(f"Processing {file_extension} file: {filename}")
         
-        full_text, images, processing_time = parse_document_and_return_markdown(
+        full_text, images, processing_time, converted_pdf = parse_document_and_return_markdown(
             file_bytes, filename, extract_images, model_dict, paginate
         )
         
@@ -130,6 +202,7 @@ def process_document_file(file_bytes: bytes, filename: str = None, model_dict=No
                 "text_length": len(full_text) if isinstance(full_text, str) else sum(len(page) for page in full_text),
                 "pages": len(full_text) if isinstance(full_text, list) else None
             },
+            "converted_pdf_base64": converted_pdf
         }
         
         result = {
@@ -150,6 +223,7 @@ def process_document_file(file_bytes: bytes, filename: str = None, model_dict=No
             "markdown": "" if not paginate else [],
             "metadata": {
                 "custom_metadata": {"error": str(e), "file_type": file_extension if filename else ".pdf"},
+                "converted_pdf_base64": None
             },
             "images": {},
             "status": "error"
