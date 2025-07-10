@@ -40,7 +40,7 @@ def convert_docx_to_pdf(docx_path: str, pdf_path: str) -> None:
         # --convert-to pdf: convert to PDF format
         # --outdir: specify output directory
         cmd = [
-            'soffice',
+            'libreoffice',
             '--headless',
             '--convert-to', 'pdf',  # Use the Writer PDF export filter
             '--outdir', os.path.dirname(pdf_path),
