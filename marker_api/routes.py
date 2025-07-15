@@ -91,6 +91,7 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             temp_file.write(file_bytes)
             temp_file_path = temp_file.name
         
+        original_temp_path = temp_file_path  # Keep track of original file
         try:
             # If the file is a DOCX, convert it to PDF first
             if file_extension == '.docx':
@@ -155,12 +156,12 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             
         finally:
             # Clean up the temporary files
-            try:
-                os.unlink(temp_file_path)
-                if file_extension == '.docx' and 'pdf_temp_path' in locals():
-                    os.unlink(pdf_temp_path)
-            except Exception as e:
-                logger.warning(f"Failed to delete temporary file(s): {e}")
+            for path in [original_temp_path, temp_file_path]:
+                try:
+                    if path and os.path.exists(path):
+                        os.unlink(path)
+                except OSError:
+                    pass  # File already deleted or doesn't exist
                 
     except Exception as e:
         logger.error(f"Error processing document: {str(e)}")
