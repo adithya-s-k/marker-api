@@ -128,7 +128,7 @@ async def convert_document_to_markdown(
         raise HTTPException(status_code=413, detail="File too large. Maximum size is 50MB.")
     
     # Check file type
-    allowed_extensions = {'.pdf', '.docx', '.pptx', '.xlsx', '.html', '.epub'}
+    allowed_extensions = {'.pdf', '.docx', '.pptx', '.xlsx', '.html', '.epub', '.doc'}
     file_extension = os.path.splitext(file.filename)[1].lower() if file.filename else ''
     
     if file_extension not in allowed_extensions:

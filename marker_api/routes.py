@@ -17,7 +17,7 @@ from marker.config.parser import ConfigParser
 configure_logging()
 logger = logging.getLogger(__name__)
 
-SUPPORTED_EXTENSIONS = ['.pdf', '.docx'] # , '.pptx', '.xlsx', '.html', '.epub']
+SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.doc'] # , '.pptx', '.xlsx', '.html', '.epub']
 
 def convert_docx_to_pdf(docx_path: str, pdf_path: str) -> None:
     """
@@ -93,8 +93,8 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
         
         original_temp_path = temp_file_path  # Keep track of original file
         try:
-            # If the file is a DOCX, convert it to PDF first
-            if file_extension == '.docx':
+            # If the file is a DOCX, convert it to DF first
+            if file_extension == '.docx' or file_extension == '.doc':
                 pdf_temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
                 pdf_temp_path = pdf_temp_file.name
                 pdf_temp_file.close()
