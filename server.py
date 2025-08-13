@@ -28,6 +28,36 @@ from marker_api.model.schema import (
 
 # Initialize logging
 configure_logging()
+
+def apply_marker_formatter_and_route_to_root(
+    fmt="[%(asctime)s]-[%(levelname)s]-[%(name)s]: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+) -> None:
+    formatter = logging.Formatter(fmt=fmt, datefmt=datefmt)
+    marker_logger = logging.getLogger("marker")
+    root = logging.getLogger()
+
+    # If marker has no handlers, nothing to do
+    if not marker_logger.handlers:
+        return
+
+    # Move marker handlers to root with new formatter (prevents duplicates)
+    handlers_to_move = list(marker_logger.handlers)
+    for h in handlers_to_move:
+        try:
+            h.setFormatter(formatter)
+        except Exception:
+            pass
+        marker_logger.removeHandler(h)
+        if h not in root.handlers:
+            root.addHandler(h)
+
+    root.setLevel(level)
+    marker_logger.propagate = True  # marker logs now flow to root
+
+apply_marker_formatter_and_route_to_root()
+
 logger = logging.getLogger(__name__)
 
 # Global variable to hold model dict
