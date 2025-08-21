@@ -19,13 +19,14 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.doc'] # , '.pptx', '.xlsx', '.html', '.epub']
 
-def convert_docx_to_pdf(docx_path: str, pdf_path: str) -> None:
+def convert_docx_to_pdf(docx_path: str, pdf_path: str, original_filename: str = None) -> None:
     """
     Convert DOCX to PDF using LibreOffice.
     
     Args:
         docx_path (str): Path to input DOCX file
         pdf_path (str): Path where to save the PDF file
+        original_filename (str): Original filename for logging purposes
     """
     try:
         # Convert to absolute paths
@@ -47,7 +48,8 @@ def convert_docx_to_pdf(docx_path: str, pdf_path: str) -> None:
             docx_path
         ]
         
-        logger.info(f"Converting DOCX to PDF: {docx_path} -> {pdf_path}")
+        display_name = original_filename or os.path.basename(docx_path)
+        logger.info(f"Converting DOCX to PDF: {display_name}")
         process = subprocess.run(cmd, capture_output=True, text=True)
         
         if process.returncode != 0:
@@ -100,7 +102,7 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
                 pdf_temp_file.close()
                 
                 try:
-                    convert_docx_to_pdf(temp_file_path, pdf_temp_path)
+                    convert_docx_to_pdf(temp_file_path, pdf_temp_path, filename)
                     temp_file_path = pdf_temp_path  # Use the converted PDF
                 except Exception as e:
                     raise Exception(f"Failed to convert DOCX to PDF: {str(e)}")
@@ -129,13 +131,14 @@ def parse_document_and_return_markdown(file_bytes: bytes, filename: str, extract
             end_time = time.time()
             processing_time = end_time - start_time
             
-            logger.info(f"Document processing completed in {processing_time:.2f} seconds")
+            display_name = filename or "document"
+            logger.info(f"Document processing completed for '{display_name}' in {processing_time:.2f} seconds")
             if isinstance(full_text, list):
-                logger.info(f"Extracted {len(full_text)} pages")
+                logger.info(f"Extracted {len(full_text)} pages from '{display_name}'")
                 logger.info(f"Total text length: {sum(len(page) for page in full_text)} characters")
             else:
-                logger.info(f"Extracted text length: {len(full_text)} characters")
-            logger.info(f"Images extracted: {len(images) if images else 0}")
+                logger.info(f"Extracted text length: {len(full_text)} characters from '{display_name}'")
+            logger.info(f"Images extracted from '{display_name}': {len(images) if images else 0}")
             
             # Process images if extraction is enabled
             image_data = {}
