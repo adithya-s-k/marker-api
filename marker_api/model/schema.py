@@ -41,14 +41,15 @@ class GeneralMetadata(BaseModel):
     toc: Optional[List[Dict[str, Any]]] = None
     pages: Optional[int] = None
     custom_metadata: Dict[str, Any] = Field(default_factory=dict)
+    converted_pdf_base64: Optional[str] = None  # Base64 encoded PDF content
 
 
 class PDFConversionResult(BaseModel):
     filename: str
-    markdown: str
+    markdown: str  # Can be either a single string or a list of strings for paginated output
     metadata: GeneralMetadata
-    images: Dict[str, str]
-    status: str
+    images: Dict[str, str] = Field(default_factory=dict)
+    status: str = "success"
 
 
 class ConversionResponse(BaseModel):
@@ -68,8 +69,7 @@ class CeleryResultResponse(BaseModel):
 
 
 class BatchConversionResponse(BaseModel):
-    task_id: str
-    status: str
+    results: List[PDFConversionResult]
 
 
 class BatchResultResponse(BaseModel):
@@ -79,3 +79,14 @@ class BatchResultResponse(BaseModel):
     completed: Optional[int] = None
     total: Optional[int] = None
     progress: Optional[str] = None
+
+
+class TaskResponse(BaseModel):
+    task_id: str
+    status: str
+
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    result: Optional[Union[PDFConversionResult, str, Dict[str, Any]]] = None

@@ -1,87 +1,119 @@
 from celery import Task
 from marker_api.celery_worker import celery_app
-from marker.convert import convert_single_pdf
-from marker.models import load_all_models
+from marker.converters.pdf import PdfConverter
+from marker.models import create_model_dict
+from marker.output import text_from_rendered
+from marker.logger import configure_logging
 import io
+import os
+import time
+import base64
+import tempfile
+from PIL import Image
 import logging
 from marker_api.utils import process_image_to_base64
 from celery.signals import worker_process_init
+from marker_api.routes import process_document_file
 
+# Initialize logging
+configure_logging()
 logger = logging.getLogger(__name__)
 
-model_list = None
-
+converter = None
 
 @worker_process_init.connect
 def initialize_models(**kwargs):
-    global model_list
-    if not model_list:
-        model_list = load_all_models()
-        print("Models loaded at worker startup")
+    global converter
+    if not converter:
+        converter = PdfConverter(
+            artifact_dict=create_model_dict(),
+        )
+        logger.debug("Marker converter initialized at worker startup")
 
 
-class PDFConversionTask(Task):
-    abstract = True
+class DocumentConversionTask(Task):
+    _model_dict = None
 
-    def __init__(self):
-        super().__init__()
-
-    def __call__(self, *args, **kwargs):
-        # Use the global model_list initialized at worker startup
-        return self.run(*args, **kwargs)
+    @property
+    def model_dict(self):
+        if self._model_dict is None:
+            self._model_dict = create_model_dict()
+        return self._model_dict
 
 
 @celery_app.task(
-    ignore_result=False, bind=True, base=PDFConversionTask, name="convert_pdf"
+    ignore_result=False, bind=True, base=DocumentConversionTask, name="convert_document"
 )
-def convert_pdf_to_markdown(self, filename, pdf_content):
-    pdf_file = io.BytesIO(pdf_content)
-    markdown_text, images, metadata = convert_single_pdf(pdf_file, model_list)
-    image_data = {}
-    for i, (img_filename, image) in enumerate(images.items()):
-        logger.debug(f"Processing image {img_filename}")
-        image_base64 = process_image_to_base64(image, img_filename)
-        image_data[img_filename] = image_base64
-
-    return {
-        "filename": filename,
-        "markdown": markdown_text,
-        "metadata": metadata,
-        "images": image_data,
-        "status": "ok",
-    }
-
-
-# @celery_app.task(
-#     ignore_result=False, bind=True, base=PDFConversionTask, name="process_batch"
-# )
-# def process_batch(self, batch_data):
-#     results = []
-#     for filename, pdf_content in batch_data:
-#         try:
-#             result = convert_pdf_to_markdown(filename, pdf_content)
-#             results.append(result)
-#         except Exception as e:
-#             logger.error(f"Error processing {filename}: {str(e)}")
-#             results.append({"filename": filename, "status": "Error", "error": str(e)})
-#     return results
+def convert_pdf_to_markdown(self, filename, file_content, extract_images: bool = True, paginate: bool = True):
+    """
+    Convert a PDF file to markdown.
+    
+    Args:
+        filename (str): The original filename
+        file_content (bytes): The PDF file content
+        extract_images (bool): Whether to extract images
+        paginate (bool): Whether to split output into pages
+    
+    Returns:
+        dict: Processing results matching PDFConversionResult schema
+    """
+    return process_document_file(
+        file_content, 
+        filename=filename, 
+        model_dict=self.model_dict, 
+        extract_images=extract_images,
+        paginate=paginate
+    )
 
 
 @celery_app.task(
-    ignore_result=False, bind=True, base=PDFConversionTask, name="process_batch"
+    ignore_result=False, bind=True, base=DocumentConversionTask, name="process_batch"
 )
 def process_batch(self, batch_data):
+    """
+    Process multiple documents in batch.
+    
+    Args:
+        batch_data (list): List of tuples (filename, content, extract_images, paginate)
+    
+    Returns:
+        list: List of processing results
+    """
     results = []
-    total = len(batch_data)
-    for i, (filename, pdf_content) in enumerate(batch_data, start=1):
+    total_files = len(batch_data)
+    
+    for i, (filename, content, extract_images, paginate) in enumerate(batch_data, 1):
         try:
-            result = convert_pdf_to_markdown(filename, pdf_content)
+            # Update progress
+            self.update_state(
+                state="PROGRESS",
+                meta={
+                    "current": i,
+                    "total": total_files,
+                    "status": f"Processing {filename}"
+                }
+            )
+            
+            # Process the document
+            result = process_document_file(
+                content,
+                filename=filename,
+                model_dict=self.model_dict,
+                extract_images=extract_images,
+                paginate=paginate
+            )
             results.append(result)
+            
         except Exception as e:
             logger.error(f"Error processing {filename}: {str(e)}")
-            results.append({"filename": filename, "status": "Error", "error": str(e)})
-
-        # Update progress
-        self.update_state(state="PROGRESS", meta={"current": i, "total": total})
-
-    return results
+            results.append({
+                "filename": filename,
+                "markdown": "" if not paginate else [],
+                "metadata": {
+                    "custom_metadata": {"error": str(e)},
+                },
+                "images": {},
+                "status": "error"
+            })
+    
+    return results 

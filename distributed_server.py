@@ -1,7 +1,7 @@
 import argparse
 import uvicorn
 import logging
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from celery.exceptions import TimeoutError
 from fastapi.middleware.cors import CORSMiddleware
 from marker_api.celery_worker import celery_app
@@ -14,8 +14,8 @@ from marker_api.celery_routes import (
     celery_batch_convert,
     celery_batch_result,
 )
-import gradio as gr
-from marker_api.demo import demo_ui
+# import gradio as gr
+# from marker_api.demo import demo_ui
 from marker_api.model.schema import (
     BatchConversionResponse,
     BatchResultResponse,
@@ -24,15 +24,21 @@ from marker_api.model.schema import (
     ConversionResponse,
     HealthResponse,
     ServerType,
+    PDFConversionResult,
 )
 from typing import List
+import os
 
 # Initialize logging
 configure_logging()
 logger = logging.getLogger(__name__)
 
 # Global variable to hold model list
-app = FastAPI()
+app = FastAPI(
+    title="Marker API Distributed Server",
+    description="Distributed API for converting documents (PDF, DOCX, PPTX, XLSX, HTML, EPUB) to Markdown using marker",
+    version="1.7.5"
+)
 
 logger.info("Configuring CORS middleware")
 app.add_middleware(
@@ -44,7 +50,7 @@ app.add_middleware(
 )
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/healthz", response_model=HealthResponse)
 def server():
     """
     Root endpoint to check server status.
@@ -58,19 +64,48 @@ def server():
         message="Welcome to Marker-api",
         type=server_type,
         workers=worker_count if server_type == ServerType.distributed else None,
+        supported_formats=["PDF", "DOCX", "PPTX", "XLSX", "HTML", "EPUB"]
     )
 
 
 def is_celery_alive() -> bool:
     logger.debug("Checking if Celery is alive")
-    try:
-        result = celery_app.send_task("celery.ping")
-        result.get(timeout=3)
-        logger.info("Celery is alive")
-        return True
-    except (TimeoutError, Exception) as e:
-        logger.warning(f"Celery is not responding: {str(e)}")
-        return False
+    max_retries = 3
+    timeout = 10  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            result = celery_app.send_task("celery.ping")
+            result.get(timeout=timeout)
+            logger.info("Celery is alive")
+            return True
+        except (TimeoutError, Exception) as e:
+            logger.warning(f"Celery connection attempt {attempt + 1}/{max_retries} failed: {str(e)}")
+            if attempt < max_retries - 1:
+                import time
+                time.sleep(2)  # Wait 2 seconds before retrying
+    
+    logger.error("All Celery connection attempts failed")
+    return False
+
+
+def validate_file(file: UploadFile) -> str:
+    """Validate uploaded file and return file extension"""
+    # Check file size (limit to 50MB)
+    if file.size and file.size > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 50MB.")
+    
+    # Check file type
+    allowed_extensions = {'.pdf', '.docx', '.pptx', '.xlsx', '.html', '.epub'}
+    file_extension = os.path.splitext(file.filename)[1].lower() if file.filename else ''
+    
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unsupported file type: {file_extension}. Supported types: {', '.join(allowed_extensions)}"
+        )
+    
+    return file_extension
 
 
 def setup_routes(app: FastAPI, celery_live: bool):
@@ -79,20 +114,39 @@ def setup_routes(app: FastAPI, celery_live: bool):
         logger.info("Adding Celery routes")
 
         @app.post("/convert", response_model=ConversionResponse)
-        async def convert_pdf(pdf_file: UploadFile = File(...)):
-            return await celery_convert_pdf_concurrent_await(pdf_file)
+        async def convert_document(
+            file: UploadFile = File(...),
+            extract_images: bool = Form(True),
+            paginate: bool = Form(True)
+        ):
+            """Convert a document (PDF, DOCX, PPTX, XLSX, HTML, EPUB) to markdown"""
+            validate_file(file)
+            return await celery_convert_pdf_concurrent_await(file, extract_images, paginate)
 
         @app.post("/celery/convert", response_model=CeleryTaskResponse)
-        async def celery_convert(pdf_file: UploadFile = File(...)):
-            return await celery_convert_pdf(pdf_file)
+        async def celery_convert_document(
+            file: UploadFile = File(...),
+            extract_images: bool = Form(False),
+            paginate: bool = Form(True)
+        ):
+            """Submit a document conversion task to Celery queue"""
+            validate_file(file)
+            return await celery_convert_pdf(file, extract_images, paginate)
 
         @app.get("/celery/result/{task_id}", response_model=CeleryResultResponse)
         async def get_celery_result(task_id: str):
             return await celery_result(task_id)
 
         @app.post("/batch_convert", response_model=BatchConversionResponse)
-        async def batch_convert(pdf_files: List[UploadFile] = File(...)):
-            return await celery_batch_convert(pdf_files)
+        async def batch_convert(
+            files: List[UploadFile] = File(...),
+            extract_images: bool = Form(False),
+            paginate: bool = Form(True)
+        ):
+            """Convert multiple documents to markdown"""
+            for file in files:
+                validate_file(file)
+            return await celery_batch_convert(files, extract_images, paginate)
 
         @app.get("/batch_convert/result/{task_id}", response_model=BatchResultResponse)
         async def get_batch_result(task_id: str):
@@ -101,7 +155,7 @@ def setup_routes(app: FastAPI, celery_live: bool):
         logger.info("Adding real-time conversion route")
     else:
         logger.warning("Celery routes not added as Celery is not alive")
-    app = gr.mount_gradio_app(app, demo_ui, path="")
+    # app = gr.mount_gradio_app(app, demo_ui, path="")
 
 
 def parse_args():

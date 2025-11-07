@@ -1,47 +1,114 @@
 import os
 import asyncio
 import argparse
-from fastapi import FastAPI, UploadFile, File
+import base64
+import io
+from PIL import Image
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Dict, Any
 import concurrent.futures
 from marker.logger import configure_logging  # Import logging configuration
-from marker.models import load_all_models  # Import function to load models
+from marker.models import create_model_dict  # Import function to create model dict
 from marker_api.routes import (
-    process_pdf_file,
+    process_document_file,  # Updated to handle all document types
 )
 from marker_api.utils import print_markerapi_text_art
 from contextlib import asynccontextmanager
 import logging
-import gradio as gr
+# import gradio as gr
 from marker_api.model.schema import (
     BatchConversionResponse,
     ConversionResponse,
     HealthResponse,
     ServerType,
+    PDFConversionResult,
 )
-from marker_api.demo import demo_ui
+# from marker_api.demo import demo_ui
 
 # Initialize logging
 configure_logging()
+
+def apply_marker_formatter_and_route_to_root(
+    fmt="[%(asctime)s]-[%(levelname)s]-[%(name)s]: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+) -> None:
+    formatter = logging.Formatter(fmt=fmt, datefmt=datefmt)
+    marker_logger = logging.getLogger("marker")
+    root = logging.getLogger()
+
+    # If marker has no handlers, nothing to do
+    if not marker_logger.handlers:
+        return
+
+    # Move marker handlers to root with new formatter (prevents duplicates)
+    handlers_to_move = list(marker_logger.handlers)
+    for h in handlers_to_move:
+        try:
+            h.setFormatter(formatter)
+        except Exception:
+            pass
+        marker_logger.removeHandler(h)
+        if h not in root.handlers:
+            root.addHandler(h)
+
+    root.setLevel(level)
+    marker_logger.propagate = True  # marker logs now flow to root
+
+apply_marker_formatter_and_route_to_root()
+
 logger = logging.getLogger(__name__)
 
-# Global variable to hold model list
-model_list = None
+# Global variable to hold model dict
+model_dict = None
 
+
+# def clean_pil_images_from_dict(obj):
+#     """
+#     Recursively clean PIL Image objects from a dictionary/list structure,
+#     converting them to base64 strings.
+#     """
+#     if isinstance(obj, dict):
+#         cleaned = {}
+#         for key, value in obj.items():
+#             cleaned[key] = clean_pil_images_from_dict(value)
+#         return cleaned
+#     elif isinstance(obj, list):
+#         return [clean_pil_images_from_dict(item) for item in obj]
+#     elif isinstance(obj, Image.Image):
+#         # Convert PIL Image to base64 string
+#         try:
+#             img_byte_arr = io.BytesIO()
+#             obj.save(img_byte_arr, format="PNG")
+#             img_byte_arr = img_byte_arr.getvalue()
+#             return base64.b64encode(img_byte_arr).decode()
+#         except Exception as e:
+
+#             logger.error(f"Error converting PIL Image to base64: {str(e)}")
+#             return ""
+#     else:
+#         return obj
 
 # Event that runs on startup to load all models
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global model_list
+    global model_dict
     logger.debug("--------------------- Loading OCR Model -----------------------")
     print_markerapi_text_art()
-    model_list = load_all_models()
+    model_dict = create_model_dict()
     yield
 
 
 # Initialize FastAPI app
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Marker API",
+    description="Convert PDF to Markdown with marker-pdf",
+    version="1.7.5",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan
+)
 
 # Add CORS middleware to allow cross-origin requests
 app.add_middleware(
@@ -52,49 +119,106 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-app = gr.mount_gradio_app(app, demo_ui, path="")
+# app = gr.mount_gradio_app(app, demo_ui, path="")
 
 
-@app.get("/health", response_model=HealthResponse)
-def server():
+@app.get("/healthz")
+async def health_check():
+    return {"message": "Marker API is running", "status": "ok", "version": "1.7.5"}
+
+@app.get("/")
+async def root():
+    return {"message": "Welcome to Marker-api", "version": "1.7.5"}
+
+
+# Endpoint to convert a single document to markdown
+@app.post("/convert", response_model=PDFConversionResult)
+async def convert_document_to_markdown(
+    file: UploadFile = File(...),
+    extract_images: bool = Form(False),
+    paginate: bool = Form(True)
+):
     """
-    Root endpoint to check server status.
+    Endpoint to convert a document (PDF, DOCX, PPTX, XLSX, HTML, EPUB) to markdown.
+    
+    Parameters:
+    - file: The document file to convert
+    - extract_images: Whether to extract and include images in the output
+    - paginate: Whether to split the output into pages based on the original document structure
     """
-    return HealthResponse(message="Welcome to Marker-api", type=ServerType.simple)
+    global model_dict
+    
+    if model_dict is None:
+        raise HTTPException(status_code=503, detail="Models not loaded yet")
+    
+    logger.debug(f"Received file: {file.filename}")
+    
+    # Check file size (limit to 50MB)
+    if file.size and file.size > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 50MB.")
+    
+    # Check file type
+    allowed_extensions = {'.pdf', '.docx', '.pptx', '.xlsx', '.html', '.epub', '.doc'}
+    file_extension = os.path.splitext(file.filename)[1].lower() if file.filename else ''
+    
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unsupported file type: {file_extension}. Supported types: {', '.join(allowed_extensions)}"
+        )
+    
+    try:
+        file_content = await file.read()
+        response = process_document_file(
+            file_content, 
+            filename=file.filename, 
+            model_dict=model_dict, 
+            extract_images=extract_images,
+            paginate=paginate
+        )
+        # Clean any PIL Image objects from the response
+        cleaned_response = response
+        # cleaned_response = clean_pil_images_from_dict(response)
+
+        return PDFConversionResult(**cleaned_response)
+    except Exception as e:
+        logger.error(f"Error processing document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
 
 
-# Endpoint to convert a single PDF to markdown
-@app.post("/convert", response_model=ConversionResponse)
-async def convert_pdf_to_markdown(pdf_file: UploadFile):
-    """
-    Endpoint to convert a single PDF to markdown.
-    """
-    logger.debug(f"Received file: {pdf_file.filename}")
-    file = await pdf_file.read()
-    response = process_pdf_file(file, pdf_file.filename, model_list)
-    return ConversionResponse(status="Success", result=response)
-
-
-# Endpoint to convert multiple PDFs to markdown
+# Endpoint to convert multiple documents to markdown
 @app.post("/batch_convert", response_model=BatchConversionResponse)
-async def convert_pdfs_to_markdown(pdf_files: List[UploadFile] = File(...)):
+async def convert_documents_to_markdown(
+    files: List[UploadFile] = File(...),
+    extract_images: bool = Form(False)
+):
     """
-    Endpoint to convert multiple PDFs to markdown.
+    Endpoint to convert multiple documents to markdown.
     """
-    logger.debug(f"Received {len(pdf_files)} files for batch conversion")
+    global model_dict
+    
+    if model_dict is None:
+        raise HTTPException(status_code=503, detail="Models not loaded yet")
+    
+    logger.debug(f"Received {len(files)} files for batch conversion")
 
-    async def process_files(files):
+    async def process_files(file_list):
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             coroutines = [
                 loop.run_in_executor(
-                    pool, process_pdf_file, await file.read(), file.filename, model_list
+                    pool, 
+                    process_document_file, 
+                    await file.read(), 
+                    file.filename, 
+                    model_dict, 
+                    extract_images
                 )
-                for file in files
+                for file in file_list
             ]
             return await asyncio.gather(*coroutines)
 
-    responses = await process_files(pdf_files)
+    responses = await process_files(files)
     return BatchConversionResponse(results=responses)
 
 
