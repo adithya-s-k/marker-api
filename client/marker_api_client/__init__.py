@@ -65,7 +65,7 @@ class MarkerAPIClient:
 
     def check_health(self):
         logger.info("Checking server health...")
-        response = self.session.get(f"{self.base_url}/health")
+        response = self.session.get(f"{self.base_url}/healthz")
         response.raise_for_status()
         health_data = HealthResponse(**response.json())
         self.server_type = health_data.type
@@ -74,7 +74,7 @@ class MarkerAPIClient:
 
     async def acheck_health(self):
         logger.info("Checking server health asynchronously...")
-        async with self.async_session.get(f"{self.base_url}/health") as response:
+        async with self.async_session.get(f"{self.base_url}/healthz") as response:
             response.raise_for_status()
             health_data = HealthResponse(**(await response.json()))
             self.server_type = health_data.type

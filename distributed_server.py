@@ -50,7 +50,7 @@ app.add_middleware(
 )
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/healthz", response_model=HealthResponse)
 def server():
     """
     Root endpoint to check server status.

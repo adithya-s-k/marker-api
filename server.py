@@ -122,7 +122,7 @@ app.add_middleware(
 # app = gr.mount_gradio_app(app, demo_ui, path="")
 
 
-@app.get("/health")
+@app.get("/healthz")
 async def health_check():
     return {"message": "Marker API is running", "status": "ok", "version": "1.7.5"}
 
